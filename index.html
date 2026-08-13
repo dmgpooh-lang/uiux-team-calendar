@@ -224,6 +224,14 @@
   .appr-badge-pending{background:#fff6e5;color:#b8790a;}
   .appr-badge-rejected{background:#ffeaec;color:#d63852;}
   .approval-row .btn{padding:5px 11px;font-size:12px;border-radius:8px;}
+  .reject-reason-box{display:none;align-items:center;gap:6px;width:100%;flex-basis:100%;margin-top:2px;}
+  .reject-reason-box.open{display:flex;}
+  .reject-reason-box input{
+    flex:1;padding:7px 9px;border:1px solid var(--border);border-radius:8px;
+    font-size:12.5px;font-family:inherit;background:#fbfbfd;
+  }
+  .reject-reason-box input:focus{outline:2px solid var(--accent);outline-offset:0;background:#fff;}
+  .reject-reason-box .btn{padding:6px 10px;font-size:11.5px;white-space:nowrap;}
 
   .pending-item{
     background:#fbfbfd;border:1px solid var(--border);border-radius:10px;
@@ -1012,6 +1020,12 @@ function renderApprovalRow(ev){
   else if(approval==='rejected') html += `<span class="appr-badge appr-badge-rejected">🚫 반려됨${ev.rejectReason ? ' · '+escapeHtml(ev.rejectReason) : ''}</span>`;
   if(isAdmin && approval!=='approved') html += `<button type="button" class="btn" id="approveEventBtn">승인</button>`;
   if(isAdmin && approval!=='rejected') html += `<button type="button" class="btn danger" id="rejectEventBtn">반려</button>`;
+  if(isAdmin && approval!=='rejected') html += `
+    <div class="reject-reason-box" id="rejectReasonBox">
+      <input type="text" id="rejectReasonInput" placeholder="반려 사유 (선택)">
+      <button type="button" class="btn danger" id="confirmRejectBtn">반려 확정</button>
+      <button type="button" class="btn ghost" id="cancelRejectBtn">취소</button>
+    </div>`;
   row.innerHTML = html;
   row.style.display = 'flex';
   const ab = document.getElementById('approveEventBtn');
@@ -1020,10 +1034,20 @@ function renderApprovalRow(ev){
     closeEventModal();
   });
   const rb = document.getElementById('rejectEventBtn');
-  if(rb) rb.addEventListener('click', async ()=>{
-    const reason = prompt('반려 사유를 입력해주세요 (선택, 비워도 됩니다):', '');
-    if(reason===null) return;
-    await updateDoc(doc(db,"events", ev.id), {approval:'rejected', rejectReason: reason.trim()});
+  const box = document.getElementById('rejectReasonBox');
+  if(rb) rb.addEventListener('click', ()=>{
+    rb.style.display = 'none';
+    const ab2 = document.getElementById('approveEventBtn');
+    if(ab2) ab2.style.display = 'none';
+    box.classList.add('open');
+    document.getElementById('rejectReasonInput').focus();
+  });
+  const cancelBtn = document.getElementById('cancelRejectBtn');
+  if(cancelBtn) cancelBtn.addEventListener('click', ()=> renderApprovalRow(ev));
+  const confirmBtn = document.getElementById('confirmRejectBtn');
+  if(confirmBtn) confirmBtn.addEventListener('click', async ()=>{
+    const reason = document.getElementById('rejectReasonInput').value.trim();
+    await updateDoc(doc(db,"events", ev.id), {approval:'rejected', rejectReason: reason});
     closeEventModal();
   });
 }
