@@ -387,7 +387,15 @@
     .mini-filter{gap:3px;}
     .mini-chip{font-size:9.5px;padding:3px 6px 3px 5px;}
     .mini-add{width:20px;height:20px;font-size:12px;}
-    .projects-toolbar input{max-width:none;font-size:12px;padding:8px 10px;}
+    .projects-toolbar input{max-width:none;font-size:16px;padding:8px 10px;}
+    /* iOS Safari auto-zooms the page when a focused input's font-size is under 16px
+       and won't zoom back out on its own — this is what was making the form look
+       "too big" and overflow after tapping a field. Keeping all form fields at
+       16px+ on mobile prevents that auto-zoom entirely. */
+    .field input[type=text], .field input[type=date], .field textarea, .field select,
+    .reject-reason-box input{
+      font-size:16px;
+    }
     .weekdays div{font-size:10.5px;padding:7px 0;}
     .cell{min-height:74px;padding:3px;}
     .cell .daynum{font-size:11px;}
@@ -567,11 +575,11 @@
       <p>UIUX팀 작업 일정을 확인하고, 의뢰하실 작업 일정을 등록해 주세요.</p>
       <h3>📌 일정 등록 안내</h3>
       <ol>
-        <li><b>일정을 먼저 등록해 주세요.</b>작업 내용과 예상 일정을 미리 등록해 주세요.</li>
+        <li><b>일정을 먼저 등록해 주세요.</b>UIUX팀에 작업을 의뢰하실 경우, 예상 작업 일정과 내용을 미리 등록해 주세요.</li>
         <li><b>등록 순서대로 작업합니다.</b>일정이 겹칠 경우 먼저 등록된 작업을 우선합니다.</li>
         <li><b>일정이 겹치면 담당자와 조율해 주세요.</b>기존 일정의 담당자와 협의하여 일정을 수정해 주세요.</li>
       </ol>
-      <div class="warn">⚠️ 업무 우선순위나 긴급 상황에 따라 일정이 변경될 수 있습니다.</div>
+      <div class="warn">⚠️ 일정 등록만으로 작업이 확정되는 것은 아니며, 작업 우선순위나 긴급한 업무 상황에 따라 일정이 조정될 수 있습니다.</div>
       <div class="warn warn-danger">⚠️ 로그인 없이 수정 가능한 캘린더입니다.<br>다른 사람의 일정은 삭제하지 않도록 주의해 주세요.</div>
       <div class="closing">원활한 협업을 위해 작업 의뢰 시 일정을 미리 등록해 주세요.</div>
     </div>
