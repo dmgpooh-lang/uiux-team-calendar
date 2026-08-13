@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UIUX팀일정관리</title>
+<style>
+  :root{
+    --bg:#f6f7fb;
+    --card:#ffffff;
+    --border:#e5e7ee;
+    --text:#1f2430;
+    --muted:#8a90a2;
+    --accent:#4f7cff;
+    --radius:14px;
+    --shadow:0 2px 10px rgba(20,20,40,.06);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Pretendard","Apple SD Gothic Neo","Segoe UI",Roboto,sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1180px;margin:0 auto;padding:24px 20px 60px;}
+
+  header.top{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:12px;
+    margin-bottom:18px;
+  }
+  header.top h1{font-size:20px;margin:0;font-weight:700;}
+  header.top .sub{color:var(--muted);font-size:13px;margin-top:2px;}
+  .status-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#c7cad4;margin-right:5px;}
+  .status-dot.on{background:#3ecf8e;}
+
+  .btn{
+    border:none;
+    background:var(--accent);
+    color:#fff;
+    padding:9px 14px;
+    border-radius:10px;
+    font-size:13.5px;
+    font-weight:600;
+    cursor:pointer;
+    transition:transform .05s ease, opacity .15s ease;
+  }
+  .btn:hover{opacity:.92;}
+  .btn:active{transform:scale(.97);}
+  .btn.secondary{background:#fff;color:var(--text);border:1px solid var(--border);}
+  .btn.danger{background:#ff5470;}
+  .btn.ghost{background:transparent;color:var(--muted);border:1px solid var(--border);}
+
+  .toolbar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:14px;
+    margin-bottom:16px;
+  }
+  .nav{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--border);padding:6px 8px;border-radius:12px;box-shadow:var(--shadow);}
+  .nav button{border:none;background:transparent;cursor:pointer;font-size:16px;color:var(--text);width:30px;height:30px;border-radius:8px;}
+  .nav button:hover{background:var(--bg);}
+  .nav .month-label{font-weight:700;font-size:15px;min-width:110px;text-align:center;}
+  .nav .today-btn{font-size:12px;color:var(--accent);font-weight:600;background:transparent;border:1px solid var(--accent);padding:5px 10px;border-radius:8px;width:auto;}
+
+  .teams-bar{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex-wrap:wrap;
+    background:var(--card);
+    border:1px solid var(--border);
+    padding:10px 12px;
+    border-radius:12px;
+    box-shadow:var(--shadow);
+    margin-bottom:16px;
+  }
+  .teams-bar .label{font-size:12.5px;color:var(--muted);font-weight:600;margin-right:2px;}
+  .chip{
+    display:flex;align-items:center;gap:6px;
+    padding:5px 10px 5px 8px;
+    border-radius:20px;
+    background:var(--bg);
+    border:1px solid var(--border);
+    font-size:12.5px;
+    cursor:pointer;
+    user-select:none;
+  }
+  .chip.off{opacity:.4;}
+  .chip .dot{width:9px;height:9px;border-radius:50%;flex:none;}
+  .chip .del{color:var(--muted);font-size:12px;margin-left:2px;padding:0 2px;}
+  .chip .del:hover{color:#ff5470;}
+  .add-team{
+    display:flex;align-items:center;gap:6px;
+    padding:5px 10px;
+    border-radius:20px;
+    border:1px dashed var(--border);
+    font-size:12.5px;
+    color:var(--muted);
+    cursor:pointer;
+    background:transparent;
+  }
+  .add-team:hover{color:var(--accent);border-color:var(--accent);}
+
+  .calendar{
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:16px;
+    box-shadow:var(--shadow);
+    overflow:hidden;
+  }
+  .weekdays{display:grid;grid-template-columns:repeat(7,1fr);border-bottom:1px solid var(--border);}
+  .weekdays div{padding:10px 0;text-align:center;font-size:12px;font-weight:700;color:var(--muted);}
+  .weekdays div:first-child{color:#ff6b7a;}
+  .weekdays div:last-child{color:#4f7cff;}
+
+  .grid{display:grid;grid-template-columns:repeat(7,1fr);}
+  .cell{
+    min-height:108px;
+    border-right:1px solid var(--border);
+    border-bottom:1px solid var(--border);
+    padding:6px 6px 8px;
+    position:relative;
+    cursor:pointer;
+    transition:background .1s ease;
+  }
+  .cell:hover{background:#fafbff;}
+  .cell:nth-child(7n){border-right:none;}
+  .cell .daynum{font-size:12.5px;font-weight:600;color:var(--text);margin-bottom:4px;}
+  .cell.other-month{background:#fbfbfd;}
+  .cell.other-month .daynum{color:#c8cad6;}
+  .cell.today .daynum{
+    display:inline-flex;align-items:center;justify-content:center;
+    background:var(--accent);color:#fff;
+    width:20px;height:20px;border-radius:50%;
+  }
+  .cell.sun .daynum{color:#ff6b7a;}
+  .cell.sat .daynum{color:#4f7cff;}
+
+  .evt{
+    font-size:11px;
+    padding:2.5px 6px;
+    border-radius:6px;
+    margin-bottom:3px;
+    color:#fff;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    font-weight:600;
+  }
+  .evt:hover{filter:brightness(0.92);}
+  .more-link{font-size:10.5px;color:var(--muted);padding-left:2px;}
+
+  /* modal */
+  .overlay{
+    position:fixed;inset:0;background:rgba(20,22,35,.42);
+    display:none;align-items:center;justify-content:center;z-index:50;
+    padding:16px;
+  }
+  .overlay.show{display:flex;}
+  .modal{
+    background:#fff;border-radius:16px;padding:22px;width:100%;max-width:400px;
+    box-shadow:0 20px 60px rgba(0,0,0,.2);
+    max-height:90vh;overflow:auto;
+  }
+  .modal h2{font-size:16px;margin:0 0 16px;}
+  .field{margin-bottom:13px;}
+  .field label{display:block;font-size:12.5px;color:var(--muted);margin-bottom:5px;font-weight:600;}
+  .field input[type=text], .field textarea, .field select, .field input[type=date]{
+    width:100%;padding:9px 10px;border:1px solid var(--border);border-radius:9px;font-size:13.5px;
+    font-family:inherit;background:#fbfbfd;
+  }
+  .field input:focus, .field textarea:focus, .field select:focus{outline:2px solid var(--accent);outline-offset:0;background:#fff;}
+  .field textarea{resize:vertical;min-height:56px;}
+  .row2{display:flex;gap:10px;}
+  .row2 .field{flex:1;}
+  .modal-actions{display:flex;justify-content:space-between;align-items:center;margin-top:18px;gap:8px;}
+  .modal-actions .right{display:flex;gap:8px;}
+  .color-row{display:flex;gap:7px;flex-wrap:wrap;margin-top:4px;}
+  .swatch{width:22px;height:22px;border-radius:50%;cursor:pointer;border:2px solid transparent;}
+  .swatch.sel{border-color:#1f2430;}
+
+  footer{margin-top:22px;text-align:center;color:var(--muted);font-size:12px;line-height:1.7;}
+
+  @media (max-width:640px){
+    .cell{min-height:78px;padding:4px;}
+    .evt{font-size:9.5px;padding:2px 4px;}
+    .nav .month-label{min-width:80px;font-size:13.5px;}
+    header.top h1{font-size:17px;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>📅 UIUX팀일정관리</h1>
+      <div class="sub"><span id="statusDot" class="status-dot"></span><span id="statusText">연결 중…</span></div>
+    </div>
+    <button class="btn" id="addEventBtn">+ 일정 추가</button>
+  </header>
+
+  <div class="toolbar">
+    <div class="nav">
+      <button id="prevBtn">‹</button>
+      <div class="month-label" id="monthLabel">2026년 8월</div>
+      <button id="nextBtn">›</button>
+      <button class="today-btn" id="todayBtn">오늘</button>
+    </div>
+  </div>
+
+  <div class="teams-bar" id="teamsBar">
+    <span class="label">팀 필터</span>
+  </div>
+
+  <div class="calendar">
+    <div class="weekdays">
+      <div>일</div><div>월</div><div>화</div><div>수</div><div>목</div><div>금</div><div>토</div>
+    </div>
+    <div class="grid" id="grid"></div>
+  </div>
+
+  <footer>
+    이 캘린더는 로그인 없이 링크로 모두 공유돼요. 링크를 아는 팀원 누구나 일정을 추가·수정할 수 있어요.<br>
+    협업 중인 팀의 일정을 함께 등록해서 조율해보세요 🙂
+  </footer>
+</div>
+
+<!-- Event modal -->
+<div class="overlay" id="eventOverlay">
+  <div class="modal">
+    <h2 id="modalTitle">일정 추가</h2>
+    <div class="field">
+      <label>제목</label>
+      <input type="text" id="fTitle" placeholder="예: OO 프로젝트 디자인 시안 공유">
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label>시작일</label>
+        <input type="date" id="fStart">
+      </div>
+      <div class="field">
+        <label>종료일</label>
+        <input type="date" id="fEnd">
+      </div>
+    </div>
+    <div class="field">
+      <label>담당 팀</label>
+      <select id="fTeam"></select>
+    </div>
+    <div class="field">
+      <label>메모 (선택)</label>
+      <textarea id="fMemo" placeholder="프로젝트명, 장소, 참고 링크 등"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn danger" id="deleteEventBtn" style="display:none;">삭제</button>
+      <div class="right">
+        <button class="btn ghost" id="cancelEventBtn">취소</button>
+        <button class="btn" id="saveEventBtn">저장</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Team modal -->
+<div class="overlay" id="teamOverlay">
+  <div class="modal">
+    <h2>팀 추가</h2>
+    <div class="field">
+      <label>팀 이름</label>
+      <input type="text" id="tName" placeholder="예: 퍼블리싱팀">
+    </div>
+    <div class="field">
+      <label>색상</label>
+      <div class="color-row" id="colorRow"></div>
+    </div>
+    <div class="modal-actions">
+      <div></div>
+      <div class="right">
+        <button class="btn ghost" id="cancelTeamBtn">취소</button>
+        <button class="btn" id="saveTeamBtn">추가</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getFirestore, collection, doc, addDoc, updateDoc, deleteDoc,
+  onSnapshot, query, orderBy, setDoc, getDocs
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+/* ====== Firebase 설정 (자동 생성됨) ====== */
+const firebaseConfig = {
+  apiKey: "AIzaSyACTQbxR26Rqfe36KX9VNJu3yp_yosaoZs",
+  authDomain: "uiux-team-calendar.firebaseapp.com",
+  projectId: "uiux-team-calendar",
+  storageBucket: "uiux-team-calendar.firebasestorage.app",
+  messagingSenderId: "884030160400",
+  appId: "1:884030160400:web:35de49a6c9853a0492d495"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+const statusDot = document.getElementById('statusDot');
+const statusText = document.getElementById('statusText');
+function setConnected(ok, msg){
+  statusDot.classList.toggle('on', ok);
+  statusText.textContent = msg;
+}
+
+const DEFAULT_COLORS = ["#4f7cff","#22b573","#ff9f43","#ff5470","#8b5cf6","#00b8d9","#e84393","#636e72"];
+
+let teams = [];      // {id, name, color}
+let events = [];     // {id, title, start, end, teamId, memo}
+let activeFilters = new Set(); // teamIds hidden
+let current = new Date();
+current.setDate(1);
+let editingEventId = null;
+
+const teamsCol = collection(db, "teams");
+const eventsCol = collection(db, "events");
+
+/* ---------- Seed default teams once ---------- */
+async function ensureSeedTeams(){
+  const snap = await getDocs(teamsCol);
+  if(snap.empty){
+    await addDoc(teamsCol, {name:"디자인팀", color:"#4f7cff", order:0});
+    await addDoc(teamsCol, {name:"퍼블리싱팀", color:"#22b573", order:1});
+  }
+}
+
+/* ---------- Realtime listeners ---------- */
+onSnapshot(query(teamsCol, orderBy("order","asc")), (snap)=>{
+  teams = snap.docs.map(d=>({id:d.id, ...d.data()}));
+  renderTeamsBar();
+  populateTeamSelect();
+  renderCalendar();
+  setConnected(true, "실시간 연결됨 · 팀 " + teams.length + "개");
+}, (err)=>{
+  setConnected(false, "연결 오류: " + err.message);
+});
+
+onSnapshot(eventsCol, (snap)=>{
+  events = snap.docs.map(d=>({id:d.id, ...d.data()}));
+  renderCalendar();
+});
+
+ensureSeedTeams();
+
+/* ---------- Teams bar ---------- */
+function renderTeamsBar(){
+  const bar = document.getElementById('teamsBar');
+  bar.innerHTML = '<span class="label">팀 필터</span>';
+  teams.forEach(t=>{
+    const chip = document.createElement('div');
+    chip.className = 'chip' + (activeFilters.has(t.id) ? ' off' : '');
+    chip.innerHTML = `<span class="dot" style="background:${t.color}"></span><span>${escapeHtml(t.name)}</span><span class="del" data-id="${t.id}">✕</span>`;
+    chip.addEventListener('click', (e)=>{
+      if(e.target.classList.contains('del')) return;
+      if(activeFilters.has(t.id)) activeFilters.delete(t.id); else activeFilters.add(t.id);
+      renderTeamsBar(); renderCalendar();
+    });
+    chip.querySelector('.del').addEventListener('click', async (e)=>{
+      e.stopPropagation();
+      if(confirm(`"${t.name}" 팀을 삭제할까요? 이 팀의 기존 일정은 유지되지만 팀 이름이 사라집니다.`)){
+        await deleteDoc(doc(db, "teams", t.id));
+      }
+    });
+    bar.appendChild(chip);
+  });
+  const addBtn = document.createElement('button');
+  addBtn.className = 'add-team';
+  addBtn.textContent = '+ 팀 추가';
+  addBtn.addEventListener('click', openTeamModal);
+  bar.appendChild(addBtn);
+}
+
+/* ---------- Calendar rendering ---------- */
+function pad(n){return String(n).padStart(2,'0');}
+function toKey(d){return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;}
+
+function renderCalendar(){
+  const y = current.getFullYear(), m = current.getMonth();
+  document.getElementById('monthLabel').textContent = `${y}년 ${m+1}월`;
+
+  const firstDay = new Date(y, m, 1);
+  const startOffset = firstDay.getDay();
+  const gridStart = new Date(y, m, 1 - startOffset);
+
+  const todayKey = toKey(new Date());
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+
+  for(let i=0;i<42;i++){
+    const d = new Date(gridStart);
+    d.setDate(gridStart.getDate()+i);
+    const key = toKey(d);
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    if(d.getMonth() !== m) cell.classList.add('other-month');
+    if(key === todayKey) cell.classList.add('today');
+    if(d.getDay()===0) cell.classList.add('sun');
+    if(d.getDay()===6) cell.classList.add('sat');
+
+    const num = document.createElement('div');
+    num.className = 'daynum';
+    num.textContent = d.getDate();
+    cell.appendChild(num);
+
+    const dayEvents = events
+      .filter(ev => ev.teamId && !activeFilters.has(ev.teamId))
+      .filter(ev => key >= ev.start && key <= (ev.end || ev.start))
+      .sort((a,b)=> a.start.localeCompare(b.start));
+
+    const maxShow = 3;
+    dayEvents.slice(0,maxShow).forEach(ev=>{
+      const team = teams.find(t=>t.id===ev.teamId);
+      const chip = document.createElement('div');
+      chip.className = 'evt';
+      chip.style.background = team ? team.color : '#999';
+      chip.textContent = ev.title;
+      chip.title = ev.title + (ev.memo ? (' · ' + ev.memo) : '');
+      chip.addEventListener('click', (e)=>{ e.stopPropagation(); openEventModal(ev); });
+      cell.appendChild(chip);
+    });
+    if(dayEvents.length > maxShow){
+      const more = document.createElement('div');
+      more.className = 'more-link';
+      more.textContent = `+${dayEvents.length - maxShow}개 더`;
+      cell.appendChild(more);
+    }
+
+    cell.addEventListener('click', ()=> openEventModal(null, key));
+    grid.appendChild(cell);
+  }
+}
+
+document.getElementById('prevBtn').addEventListener('click', ()=>{
+  current.setMonth(current.getMonth()-1); renderCalendar();
+});
+document.getElementById('nextBtn').addEventListener('click', ()=>{
+  current.setMonth(current.getMonth()+1); renderCalendar();
+});
+document.getElementById('todayBtn').addEventListener('click', ()=>{
+  current = new Date(); current.setDate(1); renderCalendar();
+});
+
+/* ---------- Event modal ---------- */
+const eventOverlay = document.getElementById('eventOverlay');
+function populateTeamSelect(){
+  const sel = document.getElementById('fTeam');
+  const prev = sel.value;
+  sel.innerHTML = teams.map(t=>`<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
+  if(prev) sel.value = prev;
+}
+function openEventModal(ev, dateKey){
+  editingEventId = ev ? ev.id : null;
+  document.getElementById('modalTitle').textContent = ev ? '일정 수정' : '일정 추가';
+  document.getElementById('fTitle').value = ev ? ev.title : '';
+  document.getElementById('fStart').value = ev ? ev.start : (dateKey || toKey(new Date()));
+  document.getElementById('fEnd').value = ev ? (ev.end || ev.start) : (dateKey || toKey(new Date()));
+  document.getElementById('fMemo').value = ev ? (ev.memo || '') : '';
+  if(ev && ev.teamId) document.getElementById('fTeam').value = ev.teamId;
+  document.getElementById('deleteEventBtn').style.display = ev ? 'inline-block' : 'none';
+  eventOverlay.classList.add('show');
+  document.getElementById('fTitle').focus();
+}
+function closeEventModal(){ eventOverlay.classList.remove('show'); editingEventId=null; }
+
+document.getElementById('addEventBtn').addEventListener('click', ()=>{
+  const now = new Date();
+  const isCurrentMonth = current.getFullYear()===now.getFullYear() && current.getMonth()===now.getMonth();
+  openEventModal(null, toKey(isCurrentMonth ? now : current));
+});
+document.getElementById('cancelEventBtn').addEventListener('click', closeEventModal);
+eventOverlay.addEventListener('click', (e)=>{ if(e.target===eventOverlay) closeEventModal(); });
+
+document.getElementById('saveEventBtn').addEventListener('click', async ()=>{
+  const title = document.getElementById('fTitle').value.trim();
+  let start = document.getElementById('fStart').value;
+  let end = document.getElementById('fEnd').value;
+  const teamId = document.getElementById('fTeam').value;
+  const memo = document.getElementById('fMemo').value.trim();
+  if(!title){ alert('제목을 입력해주세요.'); return; }
+  if(!start){ alert('시작일을 선택해주세요.'); return; }
+  if(!end || end < start) end = start;
+  if(!teamId){ alert('먼저 팀을 추가해주세요.'); return; }
+
+  const data = { title, start, end, teamId, memo };
+  if(editingEventId){
+    await updateDoc(doc(db,"events", editingEventId), data);
+  } else {
+    await addDoc(eventsCol, data);
+  }
+  closeEventModal();
+});
+
+document.getElementById('deleteEventBtn').addEventListener('click', async ()=>{
+  if(!editingEventId) return;
+  if(confirm('이 일정을 삭제할까요?')){
+    await deleteDoc(doc(db,"events", editingEventId));
+    closeEventModal();
+  }
+});
+
+/* ---------- Team modal ---------- */
+const teamOverlay = document.getElementById('teamOverlay');
+let selectedColor = DEFAULT_COLORS[0];
+function openTeamModal(){
+  document.getElementById('tName').value='';
+  selectedColor = DEFAULT_COLORS[teams.length % DEFAULT_COLORS.length];
+  const row = document.getElementById('colorRow');
+  row.innerHTML='';
+  DEFAULT_COLORS.forEach(c=>{
+    const sw = document.createElement('div');
+    sw.className='swatch' + (c===selectedColor?' sel':'');
+    sw.style.background=c;
+    sw.addEventListener('click', ()=>{
+      selectedColor=c;
+      [...row.children].forEach(el=>el.classList.remove('sel'));
+      sw.classList.add('sel');
+    });
+    row.appendChild(sw);
+  });
+  teamOverlay.classList.add('show');
+  document.getElementById('tName').focus();
+}
+document.getElementById('cancelTeamBtn').addEventListener('click', ()=> teamOverlay.classList.remove('show'));
+teamOverlay.addEventListener('click', (e)=>{ if(e.target===teamOverlay) teamOverlay.classList.remove('show'); });
+document.getElementById('saveTeamBtn').addEventListener('click', async ()=>{
+  const name = document.getElementById('tName').value.trim();
+  if(!name){ alert('팀 이름을 입력해주세요.'); return; }
+  await addDoc(teamsCol, {name, color:selectedColor, order: teams.length});
+  teamOverlay.classList.remove('show');
+});
+
+function escapeHtml(s){
+  return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+renderCalendar();
+</script>
+</body>
+</html>
