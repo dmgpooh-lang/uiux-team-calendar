@@ -59,6 +59,14 @@
   }
   .mini-add:hover{color:var(--accent);border-color:var(--accent);}
 
+  .admin-btn{
+    display:flex;align-items:center;gap:5px;
+    padding:7px 11px;border-radius:10px;border:1px solid var(--border);
+    background:#fff;color:var(--muted);font-size:12px;font-weight:700;cursor:pointer;
+  }
+  .admin-btn:hover{border-color:var(--accent);color:var(--accent);}
+  .admin-btn.unlocked{background:#eef4ff;border-color:var(--accent);color:var(--accent);}
+
   .btn{
     border:none;
     background:var(--accent);
@@ -192,6 +200,9 @@
   }
   .evt.status-done{opacity:.55;}
   .evt.status-done .evt-main{text-decoration:line-through;}
+  .evt.appr-pending{opacity:.68;border-left-style:dashed;}
+  .evt.appr-rejected{opacity:.5;filter:grayscale(55%);}
+  .evt.appr-rejected .evt-main{text-decoration:line-through;}
   .evt:hover{filter:brightness(0.92);}
   .more-link{font-size:10.5px;color:var(--muted);padding-left:2px;}
 
@@ -206,6 +217,23 @@
   .status-btn[data-status="예정"].sel{background:#94a3b8;}
   .status-btn[data-status="진행중"].sel{background:#f59e0b;}
   .status-btn[data-status="완료"].sel{background:#22c55e;}
+
+  .approval-row{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:14px;}
+  .appr-badge{font-size:11.5px;font-weight:700;padding:5px 10px;border-radius:20px;}
+  .appr-badge-approved{background:#e7f9ef;color:#1a9d5c;}
+  .appr-badge-pending{background:#fff6e5;color:#b8790a;}
+  .appr-badge-rejected{background:#ffeaec;color:#d63852;}
+  .approval-row .btn{padding:5px 11px;font-size:12px;border-radius:8px;}
+
+  .pending-item{
+    background:#fbfbfd;border:1px solid var(--border);border-radius:10px;
+    padding:10px 12px;margin-bottom:8px;cursor:pointer;transition:background .1s;
+  }
+  .pending-item:hover{background:#f3f5fb;}
+  .pending-item-main{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;}
+  .pending-item-main .pending-dot{width:8px;height:8px;border-radius:50%;flex:none;}
+  .pending-item-sub{font-size:11.5px;color:var(--muted);margin-top:4px;margin-left:14px;}
+  .pending-empty{color:var(--muted);font-size:12.5px;text-align:center;padding:24px 0;}
 
   /* view tabs */
   .view-tabs{display:flex;gap:8px;margin-bottom:16px;}
@@ -276,6 +304,21 @@
   .row2 .field{flex:1;}
   .modal-actions{display:flex;justify-content:space-between;align-items:center;margin-top:18px;gap:8px;}
   .modal-actions .right{display:flex;gap:8px;}
+  .modal.notice-modal{max-width:460px;}
+  .notice-modal h2{font-size:18px;}
+  .notice-body{font-size:13px;line-height:1.7;color:var(--text);}
+  .notice-body p{margin:0 0 10px;}
+  .notice-body h3{font-size:13.5px;margin:16px 0 8px;}
+  .notice-body ol{margin:0 0 12px;padding-left:20px;}
+  .notice-body ol li{margin-bottom:8px;}
+  .notice-body ol li b{display:block;margin-bottom:2px;}
+  .notice-body .warn{
+    background:#fff6e5;color:#8a5a00;border-radius:10px;padding:10px 12px;
+    font-size:12.5px;line-height:1.6;margin:12px 0;
+  }
+  .notice-body .closing{font-size:12.5px;color:var(--muted);text-align:center;margin-top:14px;}
+  .notice-footer{display:flex;align-items:center;justify-content:space-between;margin-top:16px;gap:10px;flex-wrap:wrap;}
+  .notice-footer label{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer;user-select:none;}
   .color-row{display:flex;gap:7px;flex-wrap:wrap;margin-top:4px;}
   .swatch{width:22px;height:22px;border-radius:50%;cursor:pointer;border:2px solid transparent;}
   .swatch.sel{border-color:#1f2430;}
@@ -372,6 +415,7 @@
     </div>
     <div class="header-actions">
       <div class="mini-filter" id="miniTeamFilter"></div>
+      <button class="admin-btn" id="adminBtn" type="button">🔒 관리자</button>
       <button class="btn" id="addEventBtn">+ 일정 추가</button>
     </div>
   </header>
@@ -416,6 +460,7 @@
 <div class="overlay" id="eventOverlay">
   <div class="modal">
     <h2 id="modalTitle">일정 추가</h2>
+    <div class="approval-row" id="approvalRow" style="display:none;"></div>
     <div class="field">
       <label>프로젝트명</label>
       <input type="text" id="fProject" list="projectNameList" placeholder="예: OO 브랜드 리뉴얼 (등록된 프로젝트 중 선택 가능)">
@@ -463,6 +508,61 @@
         <button class="btn ghost" id="cancelEventBtn">취소</button>
         <button class="btn" id="saveEventBtn">저장</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Admin password modal -->
+<div class="overlay" id="adminOverlay">
+  <div class="modal" style="max-width:320px;">
+    <h2>관리자 인증</h2>
+    <div class="field">
+      <label>비밀번호</label>
+      <input type="password" id="adminPasswordInput" placeholder="비밀번호를 입력하세요">
+    </div>
+    <div class="modal-actions">
+      <div></div>
+      <div class="right">
+        <button class="btn ghost" id="cancelAdminBtn">취소</button>
+        <button class="btn" id="confirmAdminBtn">확인</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Pending approval list modal -->
+<div class="overlay" id="pendingOverlay">
+  <div class="modal" style="max-width:420px;">
+    <h2>승인 대기 목록</h2>
+    <div id="pendingListBody"></div>
+    <div class="modal-actions">
+      <button class="btn ghost" id="adminLogoutBtn">관리자 모드 종료</button>
+      <div class="right">
+        <button class="btn" id="closePendingBtn">닫기</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- First-visit notice modal -->
+<div class="overlay" id="noticeOverlay">
+  <div class="modal notice-modal">
+    <h2>UIUX팀 일정관리</h2>
+    <div class="notice-body">
+      <p>UIUX팀 작업 일정을 미리 확인하고, 의뢰하실 작업 일정을 등록해 주세요.<br>
+      PM 및 기획자분들이 UIUX팀의 작업 일정을 확인하고 프로젝트 및 업무 일정을 효율적으로 조율할 수 있도록 만든 일정관리 페이지입니다.</p>
+      <h3>📌 작업 의뢰 일정 등록 안내</h3>
+      <ol>
+        <li><b>작업 일정을 먼저 등록해 주세요.</b>UIUX팀에 작업을 의뢰하실 경우, 예상 작업 일정과 내용을 미리 등록해 주세요.</li>
+        <li><b>등록된 순서를 기준으로 작업합니다.</b>동일한 기간에 여러 작업이 등록될 경우, 먼저 일정을 등록해 주신 작업을 우선적으로 진행합니다.</li>
+        <li><b>일정이 겹치는 경우 직접 조율해 주세요.</b>이미 다른 작업이 등록되어 있는 일정에 작업을 추가해야 하는 경우, 해당 작업의 담당자와 협의하여 일정을 조정한 후 수정해 주세요.</li>
+      </ol>
+      <div class="warn">⚠️ 일정 등록만으로 작업이 확정되는 것은 아니며, 작업 우선순위나 긴급한 업무 상황에 따라 일정이 조정될 수 있습니다.</div>
+      <div class="closing">모두의 원활한 업무 진행을 위해<br>작업 의뢰 시 일정을 미리 등록해 주세요.</div>
+    </div>
+    <div class="notice-footer">
+      <label><input type="checkbox" id="noticeDontShowToday"> 오늘 하루 보지 않기</label>
+      <button class="btn" id="closeNoticeBtn">확인했어요</button>
     </div>
   </div>
 </div>
@@ -562,6 +662,14 @@ function setConnected(ok, msg){
 
 const DEFAULT_COLORS = ["#4f7cff","#22b573","#ff9f43","#ff5470","#8b5cf6","#00b8d9","#e84393","#636e72"];
 
+/* ---------- Admin (승인 권한) ---------- */
+const ADMIN_HASH = "2e0483eb1960f920055a148433c767647e123f417364dcd688d8b9335ad4544b";
+async function sha256Hex(str){
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+let isAdmin = localStorage.getItem('uiuxAdminUnlocked') === '1';
+
 /* ====== 한국 공휴일 (2025~2026 확인됨, 2027은 확정 고정일만 반영 · 음력 기반 명절은 추후 업데이트 필요) ====== */
 const HOLIDAYS = {
   // 2025
@@ -609,7 +717,7 @@ const PROJECT_COLS = [
 ];
 
 let teams = [];      // {id, name, color}
-let events = [];     // {id, title, start, end, teamId, memo, projectName, client, manager, status}
+let events = [];     // {id, title, start, end, teamId, memo, projectName, client, manager, status, approval, rejectReason}
 let projects = [];   // {id, name, client, manager, teamId, status, memo}
 let activeFilters = new Set(); // teamIds hidden
 let current = new Date();
@@ -646,6 +754,8 @@ onSnapshot(eventsCol, (snap)=>{
   events = snap.docs.map(d=>({id:d.id, ...d.data()}));
   renderCalendar();
   renderProjects();
+  updateAdminBtn();
+  if(pendingOverlay.classList.contains('show')) renderPendingList();
 });
 
 onSnapshot(projectsCol, (snap)=>{
@@ -741,15 +851,18 @@ function renderCalendar(){
       const team = teams.find(t=>t.id===ev.teamId);
       const chip = document.createElement('div');
       const statusClass = ev.status==='완료' ? ' status-done' : '';
-      chip.className = 'evt' + statusClass;
+      const approval = ev.approval || 'approved';
+      const approvalClass = approval==='pending' ? ' appr-pending' : approval==='rejected' ? ' appr-rejected' : '';
+      chip.className = 'evt' + statusClass + approvalClass;
       chip.style.background = team ? team.color : '#999';
       chip.style.borderLeftColor = STATUS_COLORS[ev.status] || 'rgba(255,255,255,.85)';
 
       const displayName = ev.projectName || ev.title || '(제목 없음)';
+      const approvalIcon = approval==='pending' ? '🕓 ' : approval==='rejected' ? '🚫 ' : '';
 
       const main = document.createElement('div');
       main.className = 'evt-main';
-      main.textContent = (STATUS_ICONS[ev.status] || '') + displayName;
+      main.textContent = approvalIcon + (STATUS_ICONS[ev.status] || '') + displayName;
       chip.appendChild(main);
 
       if(ev.client){
@@ -763,6 +876,8 @@ function renderCalendar(){
       if(ev.client) tooltipParts.push('발주처: '+ev.client);
       if(ev.manager) tooltipParts.push('담당자: '+ev.manager);
       if(ev.status) tooltipParts.push('상태: '+ev.status);
+      if(approval==='pending') tooltipParts.push('🕓 승인 대기중');
+      if(approval==='rejected') tooltipParts.push('🚫 반려됨' + (ev.rejectReason ? ' - '+ev.rejectReason : ''));
       if(ev.memo) tooltipParts.push(ev.memo);
       chip.title = tooltipParts.join(' · ');
 
@@ -887,6 +1002,32 @@ document.querySelectorAll('#statusPicker .status-btn').forEach(b=>{
   b.addEventListener('click', ()=> setSelectedStatus(b.dataset.status));
 });
 
+function renderApprovalRow(ev){
+  const row = document.getElementById('approvalRow');
+  if(!ev){ row.innerHTML = ''; row.style.display = 'none'; return; }
+  const approval = ev.approval || 'approved';
+  let html = '';
+  if(approval==='approved') html += `<span class="appr-badge appr-badge-approved">✅ 승인 완료</span>`;
+  else if(approval==='pending') html += `<span class="appr-badge appr-badge-pending">🕓 승인 대기중</span>`;
+  else if(approval==='rejected') html += `<span class="appr-badge appr-badge-rejected">🚫 반려됨${ev.rejectReason ? ' · '+escapeHtml(ev.rejectReason) : ''}</span>`;
+  if(isAdmin && approval!=='approved') html += `<button type="button" class="btn" id="approveEventBtn">승인</button>`;
+  if(isAdmin && approval!=='rejected') html += `<button type="button" class="btn danger" id="rejectEventBtn">반려</button>`;
+  row.innerHTML = html;
+  row.style.display = 'flex';
+  const ab = document.getElementById('approveEventBtn');
+  if(ab) ab.addEventListener('click', async ()=>{
+    await updateDoc(doc(db,"events", ev.id), {approval:'approved', rejectReason:''});
+    closeEventModal();
+  });
+  const rb = document.getElementById('rejectEventBtn');
+  if(rb) rb.addEventListener('click', async ()=>{
+    const reason = prompt('반려 사유를 입력해주세요 (선택, 비워도 됩니다):', '');
+    if(reason===null) return;
+    await updateDoc(doc(db,"events", ev.id), {approval:'rejected', rejectReason: reason.trim()});
+    closeEventModal();
+  });
+}
+
 function openEventModal(ev, dateKey){
   editingEventId = ev ? ev.id : null;
   document.getElementById('modalTitle').textContent = ev ? '일정 수정' : '일정 추가';
@@ -899,6 +1040,7 @@ function openEventModal(ev, dateKey){
   if(ev && ev.teamId) document.getElementById('fTeam').value = ev.teamId;
   setSelectedStatus(ev && ev.status ? ev.status : '계획');
   document.getElementById('deleteEventBtn').style.display = ev ? 'inline-block' : 'none';
+  renderApprovalRow(ev);
   eventOverlay.classList.add('show');
   document.getElementById('fProject').focus();
 }
@@ -925,7 +1067,9 @@ document.getElementById('saveEventBtn').addEventListener('click', async ()=>{
   if(!end || end < start) end = start;
   if(!teamId){ alert('먼저 팀을 추가해주세요.'); return; }
 
-  const data = { projectName, client, manager, start, end, teamId, status: selectedStatus, memo };
+  const approval = isAdmin ? 'approved' : 'pending';
+  const data = { projectName, client, manager, start, end, teamId, status: selectedStatus, memo, approval };
+  if(!isAdmin) data.rejectReason = '';
   if(editingEventId){
     await updateDoc(doc(db,"events", editingEventId), data);
   } else {
@@ -940,6 +1084,104 @@ document.getElementById('deleteEventBtn').addEventListener('click', async ()=>{
     await deleteDoc(doc(db,"events", editingEventId));
     closeEventModal();
   }
+});
+
+/* ---------- Admin (승인 권한) ---------- */
+const adminBtn = document.getElementById('adminBtn');
+const adminOverlay = document.getElementById('adminOverlay');
+const pendingOverlay = document.getElementById('pendingOverlay');
+const adminPasswordInput = document.getElementById('adminPasswordInput');
+
+function updateAdminBtn(){
+  const pendingCount = events.filter(e => (e.approval || 'approved') === 'pending').length;
+  if(isAdmin){
+    adminBtn.textContent = `🔓 승인대기 ${pendingCount}건`;
+    adminBtn.classList.add('unlocked');
+  } else {
+    adminBtn.textContent = '🔒 관리자';
+    adminBtn.classList.remove('unlocked');
+  }
+}
+
+function openAdminOverlay(){
+  adminPasswordInput.value = '';
+  adminOverlay.classList.add('show');
+  adminPasswordInput.focus();
+}
+function closeAdminOverlay(){ adminOverlay.classList.remove('show'); }
+
+function renderPendingList(){
+  const body = document.getElementById('pendingListBody');
+  const pending = events
+    .filter(e => (e.approval || 'approved') === 'pending')
+    .sort((a,b)=> a.start.localeCompare(b.start));
+  if(pending.length === 0){
+    body.innerHTML = '<div class="pending-empty">대기 중인 일정이 없어요 🎉</div>';
+    return;
+  }
+  body.innerHTML = '';
+  pending.forEach(ev=>{
+    const team = teams.find(t=>t.id===ev.teamId);
+    const row = document.createElement('div');
+    row.className = 'pending-item';
+    const dateRange = ev.end && ev.end !== ev.start ? `${ev.start} ~ ${ev.end}` : ev.start;
+    row.innerHTML = `
+      <div class="pending-item-main">
+        <span class="pending-dot" style="background:${team ? team.color : '#999'}"></span>
+        <span>${escapeHtml(ev.projectName || ev.title || '(제목 없음)')}</span>
+      </div>
+      <div class="pending-item-sub">${escapeHtml(dateRange)}${team ? ' · '+escapeHtml(team.name) : ''}${ev.client ? ' · '+escapeHtml(ev.client) : ''}</div>
+    `;
+    row.addEventListener('click', ()=>{ closePendingOverlay(); openEventModal(ev); });
+    body.appendChild(row);
+  });
+}
+function openPendingOverlay(){ renderPendingList(); pendingOverlay.classList.add('show'); }
+function closePendingOverlay(){ pendingOverlay.classList.remove('show'); }
+
+adminBtn.addEventListener('click', ()=>{
+  if(isAdmin) openPendingOverlay(); else openAdminOverlay();
+});
+document.getElementById('cancelAdminBtn').addEventListener('click', closeAdminOverlay);
+adminOverlay.addEventListener('click', (e)=>{ if(e.target===adminOverlay) closeAdminOverlay(); });
+async function tryAdminLogin(){
+  const hash = await sha256Hex(adminPasswordInput.value);
+  if(hash === ADMIN_HASH){
+    isAdmin = true;
+    localStorage.setItem('uiuxAdminUnlocked', '1');
+    closeAdminOverlay();
+    updateAdminBtn();
+  } else {
+    alert('비밀번호가 올바르지 않습니다.');
+  }
+}
+document.getElementById('confirmAdminBtn').addEventListener('click', tryAdminLogin);
+adminPasswordInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter') tryAdminLogin(); });
+
+document.getElementById('closePendingBtn').addEventListener('click', closePendingOverlay);
+pendingOverlay.addEventListener('click', (e)=>{ if(e.target===pendingOverlay) closePendingOverlay(); });
+document.getElementById('adminLogoutBtn').addEventListener('click', ()=>{
+  isAdmin = false;
+  localStorage.removeItem('uiuxAdminUnlocked');
+  updateAdminBtn();
+  closePendingOverlay();
+});
+
+/* ---------- First-visit notice popup ---------- */
+const noticeOverlay = document.getElementById('noticeOverlay');
+function todayKeyLocal(){
+  const d = new Date();
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+}
+function maybeShowNotice(){
+  if(localStorage.getItem('uiuxNoticeDismissed') === todayKeyLocal()) return;
+  noticeOverlay.classList.add('show');
+}
+document.getElementById('closeNoticeBtn').addEventListener('click', ()=>{
+  if(document.getElementById('noticeDontShowToday').checked){
+    localStorage.setItem('uiuxNoticeDismissed', todayKeyLocal());
+  }
+  noticeOverlay.classList.remove('show');
 });
 
 /* ---------- Team modal ---------- */
@@ -1155,6 +1397,8 @@ document.getElementById('deleteProjectBtn').addEventListener('click', async ()=>
 
 renderCalendar();
 renderProjects();
+updateAdminBtn();
+maybeShowNotice();
 </script>
 </body>
 </html>
