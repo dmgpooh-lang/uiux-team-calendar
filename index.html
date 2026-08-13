@@ -184,8 +184,40 @@
   }
   .status-btn.sel{border-color:transparent;color:#fff;}
   .status-btn[data-status="계획"].sel{background:#94a3b8;}
+  .status-btn[data-status="예정"].sel{background:#94a3b8;}
   .status-btn[data-status="진행중"].sel{background:#f59e0b;}
   .status-btn[data-status="완료"].sel{background:#22c55e;}
+
+  /* view tabs */
+  .view-tabs{display:flex;gap:8px;margin-bottom:16px;}
+  .tab-btn{
+    border:1px solid var(--border);background:var(--card);color:var(--muted);
+    padding:9px 16px;border-radius:10px;font-size:13.5px;font-weight:600;cursor:pointer;
+    box-shadow:var(--shadow);
+  }
+  .tab-btn.active{background:var(--accent);color:#fff;border-color:transparent;}
+
+  /* projects view */
+  .projects-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px;}
+  .projects-head h2{font-size:17px;margin:0 0 3px;}
+  .projects-head .desc{color:var(--muted);font-size:12.5px;}
+  .project-cols{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;align-items:start;}
+  .project-col{background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);padding:14px;}
+  .project-col h3{font-size:14px;margin:0 0 12px;display:flex;align-items:center;gap:6px;}
+  .project-col h3 .count{font-size:11.5px;color:var(--muted);font-weight:500;margin-left:auto;}
+  .project-card{
+    background:#fbfbfd;border:1px solid var(--border);border-left:4px solid #ccc;
+    border-radius:10px;padding:10px 12px;margin-bottom:10px;cursor:pointer;transition:background .1s;
+  }
+  .project-card:hover{background:#f3f5fb;}
+  .project-card .p-name{font-weight:700;font-size:13.5px;margin-bottom:3px;}
+  .project-card .p-meta{font-size:11.5px;color:var(--muted);line-height:1.5;}
+  .project-card .p-team{display:inline-flex;align-items:center;gap:4px;font-size:11px;margin-top:5px;color:var(--muted);}
+  .project-card .p-team .dot{width:7px;height:7px;border-radius:50%;flex:none;}
+  .project-empty{color:var(--muted);font-size:12px;text-align:center;padding:20px 0;}
+  @media (max-width:900px){
+    .project-cols{grid-template-columns:1fr;}
+  }
 
   /* modal */
   .overlay{
@@ -229,9 +261,22 @@
     .weekdays div{font-size:13px;padding:12px 0;}
     .holiday-label{font-size:10.5px;}
   }
+  /* ===== 1920x1080 (primary large-monitor target) ===== */
   @media (min-width:1920px){
-    .wrap{max-width:1680px;}
-    .cell{min-height:170px;}
+    .wrap{max-width:1820px;}
+    .cell{min-height:185px;padding:12px 12px 12px;}
+    .cell .daynum{font-size:15px;}
+    .evt{font-size:13.5px;padding:5px 9px;}
+    .evt .evt-sub{font-size:11px;}
+    header.top h1{font-size:25px;}
+    .weekdays div{font-size:14px;padding:13px 0;}
+    .holiday-label{font-size:11.5px;}
+    .project-cols{gap:20px;}
+    .project-col{padding:18px;}
+    .project-col h3{font-size:16px;}
+    .project-card{padding:13px 15px;margin-bottom:12px;}
+    .project-card .p-name{font-size:15px;}
+    .project-card .p-meta{font-size:13px;}
   }
 
   /* ===== Tablet ===== */
@@ -262,6 +307,16 @@
     .more-link{font-size:8.5px;}
     .modal{padding:16px;max-width:none;width:100%;}
     footer{font-size:10.5px;}
+    .view-tabs{gap:6px;}
+    .tab-btn{padding:7px 12px;font-size:12px;}
+    .projects-head h2{font-size:15px;}
+    .projects-head .desc{font-size:11px;}
+    .project-cols{gap:10px;}
+    .project-col{padding:12px;}
+    .project-col h3{font-size:12.5px;}
+    .project-card{padding:8px 10px;margin-bottom:8px;}
+    .project-card .p-name{font-size:12.5px;}
+    .project-card .p-meta{font-size:10.5px;}
   }
 
   @media (max-width:420px){
@@ -282,24 +337,42 @@
     <button class="btn" id="addEventBtn">+ 일정 추가</button>
   </header>
 
-  <div class="toolbar">
-    <div class="nav">
-      <button id="prevBtn">‹</button>
-      <div class="month-label" id="monthLabel">2026년 8월</div>
-      <button id="nextBtn">›</button>
-      <button class="today-btn" id="todayBtn">오늘</button>
+  <div class="view-tabs" id="viewTabs">
+    <button class="tab-btn active" data-view="calendar" id="tabCalendar">📅 캘린더</button>
+    <button class="tab-btn" data-view="projects" id="tabProjects">🗂️ 상시 프로젝트</button>
+  </div>
+
+  <div id="calendarView">
+    <div class="toolbar">
+      <div class="nav">
+        <button id="prevBtn">‹</button>
+        <div class="month-label" id="monthLabel">2026년 8월</div>
+        <button id="nextBtn">›</button>
+        <button class="today-btn" id="todayBtn">오늘</button>
+      </div>
+    </div>
+
+    <div class="teams-bar" id="teamsBar">
+      <span class="label">팀 필터</span>
+    </div>
+
+    <div class="calendar">
+      <div class="weekdays">
+        <div>일</div><div>월</div><div>화</div><div>수</div><div>목</div><div>금</div><div>토</div>
+      </div>
+      <div class="grid" id="grid"></div>
     </div>
   </div>
 
-  <div class="teams-bar" id="teamsBar">
-    <span class="label">팀 필터</span>
-  </div>
-
-  <div class="calendar">
-    <div class="weekdays">
-      <div>일</div><div>월</div><div>화</div><div>수</div><div>목</div><div>금</div><div>토</div>
+  <div id="projectsView" style="display:none;">
+    <div class="projects-head">
+      <div>
+        <h2>상시 진행 프로젝트</h2>
+        <div class="desc">단발성 일정이 아닌, 꾸준히 진행되는 유지보수·장기 프로젝트를 모아서 관리해요.</div>
+      </div>
+      <button class="btn" id="addProjectBtn">+ 프로젝트 추가</button>
     </div>
-    <div class="grid" id="grid"></div>
+    <div class="project-cols" id="projectCols"></div>
   </div>
 
   <footer>
@@ -388,6 +461,50 @@
   </div>
 </div>
 
+<!-- Project modal -->
+<div class="overlay" id="projectOverlay">
+  <div class="modal">
+    <h2 id="projectModalTitle">프로젝트 추가</h2>
+    <div class="field">
+      <label>프로젝트명</label>
+      <input type="text" id="pName" placeholder="예: OO기업 홈페이지 유지보수">
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label>발주처 (선택)</label>
+        <input type="text" id="pClient" placeholder="예: OO기업">
+      </div>
+      <div class="field">
+        <label>담당자 (선택)</label>
+        <input type="text" id="pManager" placeholder="예: 홍길동">
+      </div>
+    </div>
+    <div class="field">
+      <label>담당 팀</label>
+      <select id="pTeam"></select>
+    </div>
+    <div class="field">
+      <label>진행 상태</label>
+      <div class="status-picker" id="projectStatusPicker">
+        <button type="button" class="status-btn" data-status="예정">🗓️ 예정</button>
+        <button type="button" class="status-btn" data-status="진행중">⏳ 진행중</button>
+        <button type="button" class="status-btn" data-status="완료">✅ 완료</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>메모 (선택)</label>
+      <textarea id="pMemo" placeholder="프로젝트 관련 참고사항"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn danger" id="deleteProjectBtn" style="display:none;">삭제</button>
+      <div class="right">
+        <button class="btn ghost" id="cancelProjectBtn">취소</button>
+        <button class="btn" id="saveProjectBtn">저장</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
@@ -456,15 +573,25 @@ const HOLIDAYS = {
 const STATUS_COLORS = {"계획":"#94a3b8","진행중":"#f59e0b","완료":"#22c55e"};
 const STATUS_ICONS = {"계획":"📝 ","진행중":"⏳ ","완료":"✅ "};
 
+const PROJECT_STATUS_COLORS = {"예정":"#94a3b8","진행중":"#f59e0b","완료":"#22c55e"};
+const PROJECT_COLS = [
+  {status:"진행중", label:"진행중"},
+  {status:"예정", label:"예정"},
+  {status:"완료", label:"완료"}
+];
+
 let teams = [];      // {id, name, color}
 let events = [];     // {id, title, start, end, teamId, memo, projectName, client, manager, status}
+let projects = [];   // {id, name, client, manager, teamId, status, memo}
 let activeFilters = new Set(); // teamIds hidden
 let current = new Date();
 current.setDate(1);
 let editingEventId = null;
+let editingProjectId = null;
 
 const teamsCol = collection(db, "teams");
 const eventsCol = collection(db, "events");
+const projectsCol = collection(db, "projects");
 
 /* ---------- Seed default teams once ---------- */
 async function ensureSeedTeams(){
@@ -481,6 +608,7 @@ onSnapshot(query(teamsCol, orderBy("order","asc")), (snap)=>{
   renderTeamsBar();
   populateTeamSelect();
   renderCalendar();
+  renderProjects();
   setConnected(true, "실시간 연결됨 · 팀 " + teams.length + "개");
 }, (err)=>{
   setConnected(false, "연결 오류: " + err.message);
@@ -489,6 +617,11 @@ onSnapshot(query(teamsCol, orderBy("order","asc")), (snap)=>{
 onSnapshot(eventsCol, (snap)=>{
   events = snap.docs.map(d=>({id:d.id, ...d.data()}));
   renderCalendar();
+});
+
+onSnapshot(projectsCol, (snap)=>{
+  projects = snap.docs.map(d=>({id:d.id, ...d.data()}));
+  renderProjects();
 });
 
 ensureSeedTeams();
@@ -631,10 +764,13 @@ document.getElementById('todayBtn').addEventListener('click', ()=>{
 /* ---------- Event modal ---------- */
 const eventOverlay = document.getElementById('eventOverlay');
 function populateTeamSelect(){
-  const sel = document.getElementById('fTeam');
-  const prev = sel.value;
-  sel.innerHTML = teams.map(t=>`<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
-  if(prev) sel.value = prev;
+  const opts = teams.map(t=>`<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
+  ['fTeam','pTeam'].forEach(id=>{
+    const sel = document.getElementById(id);
+    const prev = sel.value;
+    sel.innerHTML = opts;
+    if(prev) sel.value = prev;
+  });
 }
 let selectedStatus = '계획';
 function setSelectedStatus(status){
@@ -739,7 +875,129 @@ function escapeHtml(s){
   return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
+/* ---------- View tabs ---------- */
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    const view = btn.dataset.view;
+    document.getElementById('calendarView').style.display = view==='calendar' ? '' : 'none';
+    document.getElementById('projectsView').style.display = view==='projects' ? '' : 'none';
+    document.getElementById('addEventBtn').style.display = view==='calendar' ? '' : 'none';
+  });
+});
+
+/* ---------- Projects (상시 프로젝트) ---------- */
+function renderProjects(){
+  const wrap = document.getElementById('projectCols');
+  if(!wrap) return;
+  wrap.innerHTML = '';
+  PROJECT_COLS.forEach(col=>{
+    const list = projects
+      .filter(p=>p.status===col.status)
+      .sort((a,b)=> (a.name||'').localeCompare(b.name||''));
+    const colEl = document.createElement('div');
+    colEl.className = 'project-col';
+    const h3 = document.createElement('h3');
+    h3.innerHTML = `<span style="color:${PROJECT_STATUS_COLORS[col.status]}">●</span> ${col.label} <span class="count">${list.length}건</span>`;
+    colEl.appendChild(h3);
+    if(list.length===0){
+      const empty = document.createElement('div');
+      empty.className = 'project-empty';
+      empty.textContent = '등록된 프로젝트가 없어요';
+      colEl.appendChild(empty);
+    }
+    list.forEach(p=>{
+      const team = teams.find(t=>t.id===p.teamId);
+      const card = document.createElement('div');
+      card.className = 'project-card';
+      card.style.borderLeftColor = PROJECT_STATUS_COLORS[col.status];
+      const metaParts = [];
+      if(p.client) metaParts.push('발주처: '+p.client);
+      if(p.manager) metaParts.push('담당자: '+p.manager);
+      const nameEl = document.createElement('div');
+      nameEl.className = 'p-name';
+      nameEl.textContent = p.name;
+      card.appendChild(nameEl);
+      if(metaParts.length){
+        const metaEl = document.createElement('div');
+        metaEl.className = 'p-meta';
+        metaEl.textContent = metaParts.join(' · ');
+        card.appendChild(metaEl);
+      }
+      if(team){
+        const teamEl = document.createElement('div');
+        teamEl.className = 'p-team';
+        teamEl.innerHTML = `<span class="dot" style="background:${team.color}"></span>${escapeHtml(team.name)}`;
+        card.appendChild(teamEl);
+      }
+      if(p.memo) card.title = p.memo;
+      card.addEventListener('click', ()=> openProjectModal(p));
+      colEl.appendChild(card);
+    });
+    wrap.appendChild(colEl);
+  });
+}
+
+const projectOverlay = document.getElementById('projectOverlay');
+let selectedProjectStatus = '예정';
+function setSelectedProjectStatus(status){
+  selectedProjectStatus = status;
+  document.querySelectorAll('#projectStatusPicker .status-btn').forEach(b=>{
+    b.classList.toggle('sel', b.dataset.status === status);
+  });
+}
+document.querySelectorAll('#projectStatusPicker .status-btn').forEach(b=>{
+  b.addEventListener('click', ()=> setSelectedProjectStatus(b.dataset.status));
+});
+
+function openProjectModal(p){
+  editingProjectId = p ? p.id : null;
+  document.getElementById('projectModalTitle').textContent = p ? '프로젝트 수정' : '프로젝트 추가';
+  document.getElementById('pName').value = p ? p.name : '';
+  document.getElementById('pClient').value = p ? (p.client || '') : '';
+  document.getElementById('pManager').value = p ? (p.manager || '') : '';
+  document.getElementById('pMemo').value = p ? (p.memo || '') : '';
+  if(p && p.teamId) document.getElementById('pTeam').value = p.teamId;
+  setSelectedProjectStatus(p && p.status ? p.status : '예정');
+  document.getElementById('deleteProjectBtn').style.display = p ? 'inline-block' : 'none';
+  projectOverlay.classList.add('show');
+  document.getElementById('pName').focus();
+}
+function closeProjectModal(){ projectOverlay.classList.remove('show'); editingProjectId=null; }
+
+document.getElementById('addProjectBtn').addEventListener('click', ()=> openProjectModal(null));
+document.getElementById('cancelProjectBtn').addEventListener('click', closeProjectModal);
+projectOverlay.addEventListener('click', (e)=>{ if(e.target===projectOverlay) closeProjectModal(); });
+
+document.getElementById('saveProjectBtn').addEventListener('click', async ()=>{
+  const name = document.getElementById('pName').value.trim();
+  const client = document.getElementById('pClient').value.trim();
+  const manager = document.getElementById('pManager').value.trim();
+  const teamId = document.getElementById('pTeam').value;
+  const memo = document.getElementById('pMemo').value.trim();
+  if(!name){ alert('프로젝트명을 입력해주세요.'); return; }
+  if(!teamId){ alert('먼저 팀을 추가해주세요.'); return; }
+
+  const data = { name, client, manager, teamId, status: selectedProjectStatus, memo };
+  if(editingProjectId){
+    await updateDoc(doc(db,"projects", editingProjectId), data);
+  } else {
+    await addDoc(projectsCol, data);
+  }
+  closeProjectModal();
+});
+
+document.getElementById('deleteProjectBtn').addEventListener('click', async ()=>{
+  if(!editingProjectId) return;
+  if(confirm('이 프로젝트를 삭제할까요?')){
+    await deleteDoc(doc(db,"projects", editingProjectId));
+    closeProjectModal();
+  }
+});
+
 renderCalendar();
+renderProjects();
 </script>
 </body>
 </html>
