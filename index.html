@@ -22,6 +22,7 @@
     background:var(--bg);
     color:var(--text);
     -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
   }
   .wrap{max-width:1180px;margin:0 auto;padding:24px 20px 60px;}
   html{-webkit-text-size-adjust:100%;}
@@ -148,9 +149,11 @@
   .weekdays div:first-child{color:#ff6b7a;}
   .weekdays div:last-child{color:#4f7cff;}
 
-  .grid{display:grid;grid-template-columns:repeat(7,1fr);}
+  .grid{display:grid;grid-template-columns:repeat(7,1fr);min-width:0;}
   .cell{
     min-height:128px;
+    min-width:0;
+    overflow:hidden;
     border-right:1px solid var(--border);
     border-bottom:1px solid var(--border);
     padding:6px 6px 8px;
