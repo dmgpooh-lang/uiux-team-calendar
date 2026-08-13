@@ -24,6 +24,7 @@
     -webkit-font-smoothing:antialiased;
   }
   .wrap{max-width:1180px;margin:0 auto;padding:24px 20px 60px;}
+  html{-webkit-text-size-adjust:100%;}
 
   header.top{
     display:flex;
@@ -217,11 +218,57 @@
 
   footer{margin-top:22px;text-align:center;color:var(--muted);font-size:12px;line-height:1.7;}
 
+  /* ===== Large monitors: give the calendar more breathing room ===== */
+  @media (min-width:1440px){
+    .wrap{max-width:1440px;}
+    .cell{min-height:150px;padding:10px 10px 10px;}
+    .cell .daynum{font-size:14px;}
+    .evt{font-size:12.5px;padding:4px 8px;}
+    .evt .evt-sub{font-size:10.5px;}
+    header.top h1{font-size:23px;}
+    .weekdays div{font-size:13px;padding:12px 0;}
+    .holiday-label{font-size:10.5px;}
+  }
+  @media (min-width:1920px){
+    .wrap{max-width:1680px;}
+    .cell{min-height:170px;}
+  }
+
+  /* ===== Tablet ===== */
+  @media (max-width:900px){
+    .wrap{padding:18px 14px 48px;}
+  }
+
+  /* ===== Mobile ===== */
   @media (max-width:640px){
-    .cell{min-height:78px;padding:4px;}
-    .evt{font-size:9.5px;padding:2px 4px;}
-    .nav .month-label{min-width:80px;font-size:13.5px;}
-    header.top h1{font-size:17px;}
+    .wrap{padding:14px 10px 40px;}
+    header.top{gap:8px;}
+    header.top h1{font-size:16.5px;}
+    header.top .sub{font-size:11.5px;}
+    .btn{padding:8px 12px;font-size:12.5px;}
+    .toolbar{gap:8px;}
+    .nav{width:100%;justify-content:space-between;padding:5px 6px;}
+    .nav .month-label{min-width:0;flex:1;font-size:13.5px;}
+    .nav .today-btn{font-size:11px;padding:4px 8px;}
+    .teams-bar{padding:8px 10px;gap:6px;}
+    .chip{font-size:11.5px;padding:4px 8px 4px 7px;}
+    .weekdays div{font-size:10.5px;padding:7px 0;}
+    .cell{min-height:74px;padding:3px;}
+    .cell .daynum{font-size:11px;}
+    .cell.today .daynum{width:17px;height:17px;font-size:10.5px;}
+    .holiday-label{font-size:8px;}
+    .evt{font-size:8.5px;padding:2px 4px;border-left-width:2px;margin-bottom:2px;}
+    .evt .evt-sub{display:none;}
+    .more-link{font-size:8.5px;}
+    .modal{padding:16px;max-width:none;width:100%;}
+    footer{font-size:10.5px;}
+  }
+
+  @media (max-width:420px){
+    .cell{min-height:64px;}
+    .row2{flex-direction:column;gap:13px;}
+    .status-btn{font-size:11px;padding:7px 4px;}
+    .modal h2{font-size:15px;}
   }
 </style>
 </head>
