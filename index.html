@@ -122,7 +122,7 @@
 
   .grid{display:grid;grid-template-columns:repeat(7,1fr);}
   .cell{
-    min-height:108px;
+    min-height:128px;
     border-right:1px solid var(--border);
     border-bottom:1px solid var(--border);
     padding:6px 6px 8px;
@@ -132,7 +132,8 @@
   }
   .cell:hover{background:#fafbff;}
   .cell:nth-child(7n){border-right:none;}
-  .cell .daynum{font-size:12.5px;font-weight:600;color:var(--text);margin-bottom:4px;}
+  .cell .daynum-row{display:flex;align-items:center;gap:5px;margin-bottom:3px;}
+  .cell .daynum{font-size:12.5px;font-weight:600;color:var(--text);}
   .cell.other-month{background:#fbfbfd;}
   .cell.other-month .daynum{color:#c8cad6;}
   .cell.today .daynum{
@@ -142,20 +143,48 @@
   }
   .cell.sun .daynum{color:#ff6b7a;}
   .cell.sat .daynum{color:#4f7cff;}
+  .cell.holiday .daynum{color:#ff6b7a;}
+  .holiday-label{
+    font-size:9.5px;
+    color:#ff6b7a;
+    font-weight:700;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    max-width:100%;
+  }
 
   .evt{
     font-size:11px;
-    padding:2.5px 6px;
+    padding:3px 7px;
     border-radius:6px;
     margin-bottom:3px;
     color:#fff;
-    white-space:nowrap;
     overflow:hidden;
-    text-overflow:ellipsis;
     font-weight:600;
+    border-left:3px solid rgba(255,255,255,.85);
+    line-height:1.35;
   }
+  .evt .evt-main{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .evt .evt-sub{
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    font-size:9.5px;font-weight:500;opacity:.85;margin-top:1px;
+  }
+  .evt.status-done{opacity:.55;}
+  .evt.status-done .evt-main{text-decoration:line-through;}
   .evt:hover{filter:brightness(0.92);}
   .more-link{font-size:10.5px;color:var(--muted);padding-left:2px;}
+
+  .status-picker{display:flex;gap:6px;margin-top:4px;}
+  .status-btn{
+    flex:1;padding:8px 6px;border-radius:9px;border:1px solid var(--border);
+    background:#fbfbfd;font-size:12.5px;font-weight:600;cursor:pointer;color:var(--muted);
+    display:flex;align-items:center;justify-content:center;gap:4px;
+  }
+  .status-btn.sel{border-color:transparent;color:#fff;}
+  .status-btn[data-status="계획"].sel{background:#94a3b8;}
+  .status-btn[data-status="진행중"].sel{background:#f59e0b;}
+  .status-btn[data-status="완료"].sel{background:#22c55e;}
 
   /* modal */
   .overlay{
@@ -238,7 +267,21 @@
     <h2 id="modalTitle">일정 추가</h2>
     <div class="field">
       <label>제목</label>
-      <input type="text" id="fTitle" placeholder="예: OO 프로젝트 디자인 시안 공유">
+      <input type="text" id="fTitle" placeholder="예: 1차 시안 컨펌 미팅">
+    </div>
+    <div class="field">
+      <label>프로젝트명 (선택)</label>
+      <input type="text" id="fProject" placeholder="예: OO 브랜드 리뉴얼">
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label>발주처 (선택)</label>
+        <input type="text" id="fClient" placeholder="예: OO기업">
+      </div>
+      <div class="field">
+        <label>담당자 (선택)</label>
+        <input type="text" id="fManager" placeholder="예: 홍길동">
+      </div>
     </div>
     <div class="row2">
       <div class="field">
@@ -255,8 +298,16 @@
       <select id="fTeam"></select>
     </div>
     <div class="field">
+      <label>진행 상태</label>
+      <div class="status-picker" id="statusPicker">
+        <button type="button" class="status-btn" data-status="계획">📝 계획</button>
+        <button type="button" class="status-btn" data-status="진행중">⏳ 진행중</button>
+        <button type="button" class="status-btn" data-status="완료">✅ 완료</button>
+      </div>
+    </div>
+    <div class="field">
       <label>메모 (선택)</label>
-      <textarea id="fMemo" placeholder="프로젝트명, 장소, 참고 링크 등"></textarea>
+      <textarea id="fMemo" placeholder="장소, 참고 링크 등"></textarea>
     </div>
     <div class="modal-actions">
       <button class="btn danger" id="deleteEventBtn" style="display:none;">삭제</button>
@@ -319,8 +370,47 @@ function setConnected(ok, msg){
 
 const DEFAULT_COLORS = ["#4f7cff","#22b573","#ff9f43","#ff5470","#8b5cf6","#00b8d9","#e84393","#636e72"];
 
+/* ====== 한국 공휴일 (2025~2026 확인됨, 2027은 확정 고정일만 반영 · 음력 기반 명절은 추후 업데이트 필요) ====== */
+const HOLIDAYS = {
+  // 2025
+  "2025-01-01":"신정",
+  "2025-01-28":"설날연휴", "2025-01-29":"설날", "2025-01-30":"설날연휴",
+  "2025-03-01":"삼일절", "2025-03-03":"대체공휴일(삼일절)",
+  "2025-05-05":"어린이날·부처님오신날", "2025-05-06":"대체공휴일",
+  "2025-06-06":"현충일",
+  "2025-08-15":"광복절",
+  "2025-10-03":"개천절",
+  "2025-10-05":"추석연휴", "2025-10-06":"추석", "2025-10-07":"추석연휴", "2025-10-08":"대체공휴일(추석)",
+  "2025-10-09":"한글날",
+  "2025-12-25":"성탄절",
+  // 2026
+  "2026-01-01":"신정",
+  "2026-02-16":"설날연휴", "2026-02-17":"설날", "2026-02-18":"설날연휴",
+  "2026-03-01":"삼일절", "2026-03-02":"대체공휴일(삼일절)",
+  "2026-05-05":"어린이날",
+  "2026-05-24":"부처님오신날", "2026-05-25":"대체공휴일(부처님오신날)",
+  "2026-06-06":"현충일",
+  "2026-08-15":"광복절", "2026-08-17":"대체공휴일(광복절)",
+  "2026-09-24":"추석연휴", "2026-09-25":"추석", "2026-09-26":"추석연휴",
+  "2026-10-03":"개천절", "2026-10-05":"대체공휴일(개천절)",
+  "2026-10-09":"한글날",
+  "2026-12-25":"성탄절",
+  // 2027 (고정일만 · 설날/추석/부처님오신날은 미반영)
+  "2027-01-01":"신정",
+  "2027-03-01":"삼일절",
+  "2027-05-05":"어린이날",
+  "2027-06-06":"현충일",
+  "2027-08-15":"광복절", "2027-08-16":"대체공휴일(광복절)",
+  "2027-10-03":"개천절", "2027-10-04":"대체공휴일(개천절)",
+  "2027-10-09":"한글날", "2027-10-11":"대체공휴일(한글날)",
+  "2027-12-25":"성탄절"
+};
+
+const STATUS_COLORS = {"계획":"#94a3b8","진행중":"#f59e0b","완료":"#22c55e"};
+const STATUS_ICONS = {"계획":"📝 ","진행중":"⏳ ","완료":"✅ "};
+
 let teams = [];      // {id, name, color}
-let events = [];     // {id, title, start, end, teamId, memo}
+let events = [];     // {id, title, start, end, teamId, memo, projectName, client, manager, status}
 let activeFilters = new Set(); // teamIds hidden
 let current = new Date();
 current.setDate(1);
@@ -410,25 +500,62 @@ function renderCalendar(){
     if(key === todayKey) cell.classList.add('today');
     if(d.getDay()===0) cell.classList.add('sun');
     if(d.getDay()===6) cell.classList.add('sat');
+    const holidayName = HOLIDAYS[key];
+    if(holidayName) cell.classList.add('holiday');
 
+    const numRow = document.createElement('div');
+    numRow.className = 'daynum-row';
     const num = document.createElement('div');
     num.className = 'daynum';
     num.textContent = d.getDate();
-    cell.appendChild(num);
+    numRow.appendChild(num);
+    cell.appendChild(numRow);
+
+    if(holidayName){
+      const hl = document.createElement('div');
+      hl.className = 'holiday-label';
+      hl.textContent = holidayName;
+      hl.title = holidayName;
+      cell.appendChild(hl);
+    }
 
     const dayEvents = events
       .filter(ev => ev.teamId && !activeFilters.has(ev.teamId))
       .filter(ev => key >= ev.start && key <= (ev.end || ev.start))
       .sort((a,b)=> a.start.localeCompare(b.start));
 
-    const maxShow = 3;
+    const maxShow = 2;
     dayEvents.slice(0,maxShow).forEach(ev=>{
       const team = teams.find(t=>t.id===ev.teamId);
       const chip = document.createElement('div');
-      chip.className = 'evt';
+      const statusClass = ev.status==='완료' ? ' status-done' : '';
+      chip.className = 'evt' + statusClass;
       chip.style.background = team ? team.color : '#999';
-      chip.textContent = ev.title;
-      chip.title = ev.title + (ev.memo ? (' · ' + ev.memo) : '');
+      chip.style.borderLeftColor = STATUS_COLORS[ev.status] || 'rgba(255,255,255,.85)';
+
+      const main = document.createElement('div');
+      main.className = 'evt-main';
+      main.textContent = (STATUS_ICONS[ev.status] || '') + (ev.projectName || ev.title);
+      chip.appendChild(main);
+
+      const subParts = [];
+      if(ev.projectName) subParts.push(ev.title);
+      if(ev.client) subParts.push(ev.client);
+      if(subParts.length){
+        const sub = document.createElement('div');
+        sub.className = 'evt-sub';
+        sub.textContent = subParts.join(' · ');
+        chip.appendChild(sub);
+      }
+
+      const tooltipParts = [ev.title];
+      if(ev.projectName) tooltipParts.push('프로젝트: '+ev.projectName);
+      if(ev.client) tooltipParts.push('발주처: '+ev.client);
+      if(ev.manager) tooltipParts.push('담당자: '+ev.manager);
+      if(ev.status) tooltipParts.push('상태: '+ev.status);
+      if(ev.memo) tooltipParts.push(ev.memo);
+      chip.title = tooltipParts.join(' · ');
+
       chip.addEventListener('click', (e)=>{ e.stopPropagation(); openEventModal(ev); });
       cell.appendChild(chip);
     });
@@ -462,14 +589,29 @@ function populateTeamSelect(){
   sel.innerHTML = teams.map(t=>`<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
   if(prev) sel.value = prev;
 }
+let selectedStatus = '계획';
+function setSelectedStatus(status){
+  selectedStatus = status;
+  document.querySelectorAll('#statusPicker .status-btn').forEach(b=>{
+    b.classList.toggle('sel', b.dataset.status === status);
+  });
+}
+document.querySelectorAll('#statusPicker .status-btn').forEach(b=>{
+  b.addEventListener('click', ()=> setSelectedStatus(b.dataset.status));
+});
+
 function openEventModal(ev, dateKey){
   editingEventId = ev ? ev.id : null;
   document.getElementById('modalTitle').textContent = ev ? '일정 수정' : '일정 추가';
   document.getElementById('fTitle').value = ev ? ev.title : '';
+  document.getElementById('fProject').value = ev ? (ev.projectName || '') : '';
+  document.getElementById('fClient').value = ev ? (ev.client || '') : '';
+  document.getElementById('fManager').value = ev ? (ev.manager || '') : '';
   document.getElementById('fStart').value = ev ? ev.start : (dateKey || toKey(new Date()));
   document.getElementById('fEnd').value = ev ? (ev.end || ev.start) : (dateKey || toKey(new Date()));
   document.getElementById('fMemo').value = ev ? (ev.memo || '') : '';
   if(ev && ev.teamId) document.getElementById('fTeam').value = ev.teamId;
+  setSelectedStatus(ev && ev.status ? ev.status : '계획');
   document.getElementById('deleteEventBtn').style.display = ev ? 'inline-block' : 'none';
   eventOverlay.classList.add('show');
   document.getElementById('fTitle').focus();
@@ -486,6 +628,9 @@ eventOverlay.addEventListener('click', (e)=>{ if(e.target===eventOverlay) closeE
 
 document.getElementById('saveEventBtn').addEventListener('click', async ()=>{
   const title = document.getElementById('fTitle').value.trim();
+  const projectName = document.getElementById('fProject').value.trim();
+  const client = document.getElementById('fClient').value.trim();
+  const manager = document.getElementById('fManager').value.trim();
   let start = document.getElementById('fStart').value;
   let end = document.getElementById('fEnd').value;
   const teamId = document.getElementById('fTeam').value;
@@ -495,7 +640,7 @@ document.getElementById('saveEventBtn').addEventListener('click', async ()=>{
   if(!end || end < start) end = start;
   if(!teamId){ alert('먼저 팀을 추가해주세요.'); return; }
 
-  const data = { title, start, end, teamId, memo };
+  const data = { title, projectName, client, manager, start, end, teamId, status: selectedStatus, memo };
   if(editingEventId){
     await updateDoc(doc(db,"events", editingEventId), data);
   } else {
