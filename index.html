@@ -419,11 +419,7 @@
   <div class="modal">
     <h2 id="modalTitle">일정 추가</h2>
     <div class="field">
-      <label>제목</label>
-      <input type="text" id="fTitle" placeholder="예: 1차 시안 컨펌 미팅">
-    </div>
-    <div class="field">
-      <label>프로젝트명 (선택)</label>
+      <label>프로젝트명</label>
       <input type="text" id="fProject" list="projectNameList" placeholder="예: OO 브랜드 리뉴얼 (등록된 프로젝트 중 선택 가능)">
       <datalist id="projectNameList"></datalist>
     </div>
@@ -752,23 +748,21 @@ function renderCalendar(){
       chip.style.background = team ? team.color : '#999';
       chip.style.borderLeftColor = STATUS_COLORS[ev.status] || 'rgba(255,255,255,.85)';
 
+      const displayName = ev.projectName || ev.title || '(제목 없음)';
+
       const main = document.createElement('div');
       main.className = 'evt-main';
-      main.textContent = (STATUS_ICONS[ev.status] || '') + (ev.projectName || ev.title);
+      main.textContent = (STATUS_ICONS[ev.status] || '') + displayName;
       chip.appendChild(main);
 
-      const subParts = [];
-      if(ev.projectName) subParts.push(ev.title);
-      if(ev.client) subParts.push(ev.client);
-      if(subParts.length){
+      if(ev.client){
         const sub = document.createElement('div');
         sub.className = 'evt-sub';
-        sub.textContent = subParts.join(' · ');
+        sub.textContent = ev.client;
         chip.appendChild(sub);
       }
 
-      const tooltipParts = [ev.title];
-      if(ev.projectName) tooltipParts.push('프로젝트: '+ev.projectName);
+      const tooltipParts = [displayName];
       if(ev.client) tooltipParts.push('발주처: '+ev.client);
       if(ev.manager) tooltipParts.push('담당자: '+ev.manager);
       if(ev.status) tooltipParts.push('상태: '+ev.status);
@@ -860,8 +854,7 @@ document.querySelectorAll('#statusPicker .status-btn').forEach(b=>{
 function openEventModal(ev, dateKey){
   editingEventId = ev ? ev.id : null;
   document.getElementById('modalTitle').textContent = ev ? '일정 수정' : '일정 추가';
-  document.getElementById('fTitle').value = ev ? ev.title : '';
-  document.getElementById('fProject').value = ev ? (ev.projectName || '') : '';
+  document.getElementById('fProject').value = ev ? (ev.projectName || ev.title || '') : '';
   document.getElementById('fClient').value = ev ? (ev.client || '') : '';
   document.getElementById('fManager').value = ev ? (ev.manager || '') : '';
   document.getElementById('fStart').value = ev ? ev.start : (dateKey || toKey(new Date()));
@@ -871,7 +864,7 @@ function openEventModal(ev, dateKey){
   setSelectedStatus(ev && ev.status ? ev.status : '계획');
   document.getElementById('deleteEventBtn').style.display = ev ? 'inline-block' : 'none';
   eventOverlay.classList.add('show');
-  document.getElementById('fTitle').focus();
+  document.getElementById('fProject').focus();
 }
 function closeEventModal(){ eventOverlay.classList.remove('show'); editingEventId=null; }
 
@@ -884,7 +877,6 @@ document.getElementById('cancelEventBtn').addEventListener('click', closeEventMo
 eventOverlay.addEventListener('click', (e)=>{ if(e.target===eventOverlay) closeEventModal(); });
 
 document.getElementById('saveEventBtn').addEventListener('click', async ()=>{
-  const title = document.getElementById('fTitle').value.trim();
   const projectName = document.getElementById('fProject').value.trim();
   const client = document.getElementById('fClient').value.trim();
   const manager = document.getElementById('fManager').value.trim();
@@ -892,12 +884,12 @@ document.getElementById('saveEventBtn').addEventListener('click', async ()=>{
   let end = document.getElementById('fEnd').value;
   const teamId = document.getElementById('fTeam').value;
   const memo = document.getElementById('fMemo').value.trim();
-  if(!title){ alert('제목을 입력해주세요.'); return; }
+  if(!projectName){ alert('프로젝트명을 입력해주세요.'); return; }
   if(!start){ alert('시작일을 선택해주세요.'); return; }
   if(!end || end < start) end = start;
   if(!teamId){ alert('먼저 팀을 추가해주세요.'); return; }
 
-  const data = { title, projectName, client, manager, start, end, teamId, status: selectedStatus, memo };
+  const data = { projectName, client, manager, start, end, teamId, status: selectedStatus, memo };
   if(editingEventId){
     await updateDoc(doc(db,"events", editingEventId), data);
   } else {
