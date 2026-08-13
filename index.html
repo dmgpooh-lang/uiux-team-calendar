@@ -337,6 +337,16 @@
   .color-row{display:flex;gap:7px;flex-wrap:wrap;margin-top:4px;}
   .swatch{width:22px;height:22px;border-radius:50%;cursor:pointer;border:2px solid transparent;}
   .swatch.sel{border-color:#1f2430;}
+  .swatch.swatch-none{
+    background:#fbfbfd;border:2px dashed var(--border);
+    display:flex;align-items:center;justify-content:center;
+    font-size:8px;font-weight:700;color:var(--muted);
+  }
+  .evt-team-dot{
+    display:inline-block;width:6px;height:6px;border-radius:50%;flex:none;
+    margin-right:4px;vertical-align:middle;
+    box-shadow:0 0 0 1px rgba(255,255,255,.7);
+  }
 
   footer{margin-top:22px;text-align:center;color:var(--muted);font-size:12px;line-height:1.7;}
 
@@ -635,6 +645,10 @@
       <select id="pTeam"></select>
     </div>
     <div class="field">
+      <label>캘린더 색상 (선택)</label>
+      <div class="color-row" id="projectColorRow"></div>
+    </div>
+    <div class="field">
       <label>진행 상태</label>
       <div class="status-picker" id="projectStatusPicker">
         <button type="button" class="status-btn" data-status="예정">🗓️ 예정</button>
@@ -785,6 +799,7 @@ onSnapshot(projectsCol, (snap)=>{
   projects = snap.docs.map(d=>({id:d.id, ...d.data()}));
   populateProjectDatalist();
   renderProjects();
+  renderCalendar();
 });
 
 ensureSeedTeams();
@@ -872,12 +887,15 @@ function renderCalendar(){
     const maxShow = 2;
     dayEvents.slice(0,maxShow).forEach(ev=>{
       const team = teams.find(t=>t.id===ev.teamId);
+      const project = ev.projectName
+        ? projects.find(p => p.name && p.name.trim().toLowerCase() === ev.projectName.trim().toLowerCase())
+        : null;
       const chip = document.createElement('div');
       const statusClass = ev.status==='완료' ? ' status-done' : '';
       const approval = ev.approval || 'approved';
       const approvalClass = approval==='pending' ? ' appr-pending' : approval==='rejected' ? ' appr-rejected' : '';
       chip.className = 'evt' + statusClass + approvalClass;
-      chip.style.background = team ? team.color : '#999';
+      chip.style.background = (project && project.color) || (team ? team.color : '#94a3b8');
       chip.style.borderLeftColor = STATUS_COLORS[ev.status] || 'rgba(255,255,255,.85)';
 
       const displayName = ev.projectName || ev.title || '(제목 없음)';
@@ -885,7 +903,14 @@ function renderCalendar(){
 
       const main = document.createElement('div');
       main.className = 'evt-main';
-      main.textContent = approvalIcon + (STATUS_ICONS[ev.status] || '') + displayName;
+      if(team){
+        const teamDot = document.createElement('span');
+        teamDot.className = 'evt-team-dot';
+        teamDot.style.background = team.color;
+        teamDot.title = team.name;
+        main.appendChild(teamDot);
+      }
+      main.appendChild(document.createTextNode(approvalIcon + (STATUS_ICONS[ev.status] || '') + displayName));
       chip.appendChild(main);
 
       if(ev.client){
@@ -896,6 +921,7 @@ function renderCalendar(){
       }
 
       const tooltipParts = [displayName];
+      if(team) tooltipParts.push('담당팀: '+team.name);
       if(ev.client) tooltipParts.push('발주처: '+ev.client);
       if(ev.manager) tooltipParts.push('담당자: '+ev.manager);
       if(ev.status) tooltipParts.push('상태: '+ev.status);
@@ -1035,6 +1061,7 @@ function renderApprovalRow(ev){
   else if(approval==='rejected') html += `<span class="appr-badge appr-badge-rejected">🚫 반려됨${ev.rejectReason ? ' · '+escapeHtml(ev.rejectReason) : ''}</span>`;
   if(isAdmin && approval!=='approved') html += `<button type="button" class="btn" id="approveEventBtn">승인</button>`;
   if(isAdmin && approval!=='rejected') html += `<button type="button" class="btn danger" id="rejectEventBtn">반려</button>`;
+  if(isAdmin && approval!=='pending') html += `<button type="button" class="btn ghost" id="revertPendingBtn">승인대기로 되돌리기</button>`;
   if(isAdmin && approval!=='rejected') html += `
     <div class="reject-reason-box" id="rejectReasonBox">
       <input type="text" id="rejectReasonInput" placeholder="반려 사유 (선택)">
@@ -1046,6 +1073,11 @@ function renderApprovalRow(ev){
   const ab = document.getElementById('approveEventBtn');
   if(ab) ab.addEventListener('click', async ()=>{
     await updateDoc(doc(db,"events", ev.id), {approval:'approved', rejectReason:''});
+    closeEventModal();
+  });
+  const rp = document.getElementById('revertPendingBtn');
+  if(rp) rp.addEventListener('click', async ()=>{
+    await updateDoc(doc(db,"events", ev.id), {approval:'pending', rejectReason:''});
     closeEventModal();
   });
   const rb = document.getElementById('rejectEventBtn');
@@ -1067,6 +1099,19 @@ function renderApprovalRow(ev){
   });
 }
 
+function captureEventFormSnapshot(){
+  return JSON.stringify({
+    p: document.getElementById('fProject').value,
+    c: document.getElementById('fClient').value,
+    m: document.getElementById('fManager').value,
+    s: document.getElementById('fStart').value,
+    e: document.getElementById('fEnd').value,
+    memo: document.getElementById('fMemo').value,
+    team: document.getElementById('fTeam').value,
+    status: selectedStatus
+  });
+}
+let eventFormSnapshot = null;
 function openEventModal(ev, dateKey){
   editingEventId = ev ? ev.id : null;
   document.getElementById('modalTitle').textContent = ev ? '일정 수정' : '일정 추가';
@@ -1082,16 +1127,23 @@ function openEventModal(ev, dateKey){
   renderApprovalRow(ev);
   eventOverlay.classList.add('show');
   document.getElementById('fProject').focus();
+  eventFormSnapshot = captureEventFormSnapshot();
 }
-function closeEventModal(){ eventOverlay.classList.remove('show'); editingEventId=null; }
+function closeEventModal(){ eventOverlay.classList.remove('show'); editingEventId=null; eventFormSnapshot=null; }
+function requestCloseEventModal(){
+  if(eventFormSnapshot !== null && captureEventFormSnapshot() !== eventFormSnapshot){
+    if(!confirm('작성 중인 내용이 있어요. 저장하지 않고 닫을까요?')) return;
+  }
+  closeEventModal();
+}
 
 document.getElementById('addEventBtn').addEventListener('click', ()=>{
   const now = new Date();
   const isCurrentMonth = current.getFullYear()===now.getFullYear() && current.getMonth()===now.getMonth();
   openEventModal(null, toKey(isCurrentMonth ? now : current));
 });
-document.getElementById('cancelEventBtn').addEventListener('click', closeEventModal);
-eventOverlay.addEventListener('click', (e)=>{ if(e.target===eventOverlay) closeEventModal(); });
+document.getElementById('cancelEventBtn').addEventListener('click', requestCloseEventModal);
+/* 실수로 바깥 영역을 클릭했을 때 작성 중인 내용이 사라지지 않도록, 배경 클릭으로는 닫히지 않게 함 */
 
 document.getElementById('saveEventBtn').addEventListener('click', async ()=>{
   const projectName = document.getElementById('fProject').value.trim();
@@ -1258,6 +1310,17 @@ function escapeHtml(s){
   return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
+/* 입력창 밖에서 Backspace/Delete를 누르면 일부 브라우저가 "뒤로 가기"로 처리해
+   작성 중이던 모달이 통째로 사라지는 경우가 있어, 편집 가능한 요소가 아닐 때는
+   이 키들이 페이지 이동을 일으키지 않도록 막는다. */
+document.addEventListener('keydown', (e)=>{
+  if(e.key !== 'Backspace' && e.key !== 'Delete') return;
+  const el = e.target;
+  const tag = (el && el.tagName || '').toLowerCase();
+  const isEditable = tag==='input' || tag==='textarea' || tag==='select' || (el && el.isContentEditable);
+  if(!isEditable) e.preventDefault();
+});
+
 /* ---------- View tabs ---------- */
 document.querySelectorAll('.tab-btn').forEach(btn=>{
   btn.addEventListener('click', ()=>{
@@ -1388,6 +1451,44 @@ document.querySelectorAll('#projectStatusPicker .status-btn').forEach(b=>{
   b.addEventListener('click', ()=> setSelectedProjectStatus(b.dataset.status));
 });
 
+let selectedProjectColor = null;
+function buildProjectColorRow(){
+  const prow = document.getElementById('projectColorRow');
+  prow.innerHTML = '';
+  const noneSw = document.createElement('div');
+  noneSw.className = 'swatch swatch-none' + (!selectedProjectColor ? ' sel' : '');
+  noneSw.textContent = '기본';
+  noneSw.title = '기본 (담당 팀 색상 사용)';
+  noneSw.addEventListener('click', ()=>{
+    selectedProjectColor = null;
+    [...prow.children].forEach(el=>el.classList.remove('sel'));
+    noneSw.classList.add('sel');
+  });
+  prow.appendChild(noneSw);
+  DEFAULT_COLORS.forEach(c=>{
+    const sw = document.createElement('div');
+    sw.className = 'swatch' + (c===selectedProjectColor ? ' sel' : '');
+    sw.style.background = c;
+    sw.addEventListener('click', ()=>{
+      selectedProjectColor = c;
+      [...prow.children].forEach(el=>el.classList.remove('sel'));
+      sw.classList.add('sel');
+    });
+    prow.appendChild(sw);
+  });
+}
+function captureProjectFormSnapshot(){
+  return JSON.stringify({
+    n: document.getElementById('pName').value,
+    c: document.getElementById('pClient').value,
+    m: document.getElementById('pManager').value,
+    memo: document.getElementById('pMemo').value,
+    team: document.getElementById('pTeam').value,
+    status: selectedProjectStatus,
+    color: selectedProjectColor
+  });
+}
+let projectFormSnapshot = null;
 function openProjectModal(p){
   editingProjectId = p ? p.id : null;
   document.getElementById('projectModalTitle').textContent = p ? '프로젝트 수정' : '프로젝트 추가';
@@ -1397,15 +1498,24 @@ function openProjectModal(p){
   document.getElementById('pMemo').value = p ? (p.memo || '') : '';
   if(p && p.teamId) document.getElementById('pTeam').value = p.teamId;
   setSelectedProjectStatus(p && p.status ? p.status : '예정');
+  selectedProjectColor = (p && p.color) ? p.color : null;
+  buildProjectColorRow();
   document.getElementById('deleteProjectBtn').style.display = p ? 'inline-block' : 'none';
   projectOverlay.classList.add('show');
   document.getElementById('pName').focus();
+  projectFormSnapshot = captureProjectFormSnapshot();
 }
-function closeProjectModal(){ projectOverlay.classList.remove('show'); editingProjectId=null; }
+function closeProjectModal(){ projectOverlay.classList.remove('show'); editingProjectId=null; projectFormSnapshot=null; }
+function requestCloseProjectModal(){
+  if(projectFormSnapshot !== null && captureProjectFormSnapshot() !== projectFormSnapshot){
+    if(!confirm('작성 중인 내용이 있어요. 저장하지 않고 닫을까요?')) return;
+  }
+  closeProjectModal();
+}
 
 document.getElementById('addProjectBtn').addEventListener('click', ()=> openProjectModal(null));
-document.getElementById('cancelProjectBtn').addEventListener('click', closeProjectModal);
-projectOverlay.addEventListener('click', (e)=>{ if(e.target===projectOverlay) closeProjectModal(); });
+document.getElementById('cancelProjectBtn').addEventListener('click', requestCloseProjectModal);
+/* 실수로 바깥 영역을 클릭했을 때 작성 중인 내용이 사라지지 않도록, 배경 클릭으로는 닫히지 않게 함 */
 
 document.getElementById('saveProjectBtn').addEventListener('click', async ()=>{
   const name = document.getElementById('pName').value.trim();
@@ -1416,7 +1526,7 @@ document.getElementById('saveProjectBtn').addEventListener('click', async ()=>{
   if(!name){ alert('프로젝트명을 입력해주세요.'); return; }
   if(!teamId){ alert('먼저 팀을 추가해주세요.'); return; }
 
-  const data = { name, client, manager, teamId, status: selectedProjectStatus, memo, updatedAt: serverTimestamp() };
+  const data = { name, client, manager, teamId, status: selectedProjectStatus, memo, color: selectedProjectColor, updatedAt: serverTimestamp() };
   if(editingProjectId){
     await updateDoc(doc(db,"projects", editingProjectId), data);
   } else {
