@@ -70,6 +70,32 @@
   .nav .month-label{font-weight:700;font-size:15px;min-width:110px;text-align:center;}
   .nav .today-btn{font-size:12px;color:var(--accent);font-weight:600;background:transparent;border:1px solid var(--accent);padding:5px 10px;border-radius:8px;width:auto;}
 
+  .year-strip{
+    display:flex;
+    align-items:center;
+    gap:5px;
+    flex-wrap:wrap;
+    background:var(--card);
+    border:1px solid var(--border);
+    padding:8px 10px;
+    border-radius:12px;
+    box-shadow:var(--shadow);
+    margin-bottom:16px;
+  }
+  .year-strip .ys-year{font-size:12.5px;font-weight:700;color:var(--muted);margin-right:5px;flex:none;}
+  .year-strip .ys-month{
+    flex:1;min-width:36px;text-align:center;padding:7px 4px;border-radius:8px;
+    font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;user-select:none;
+  }
+  .year-strip .ys-month:hover{background:var(--bg);}
+  .year-strip .ys-month.active{background:var(--accent);color:#fff;}
+  .year-strip .ys-month .ys-dot{
+    display:block;width:4px;height:4px;border-radius:50%;background:var(--accent);
+    margin:3px auto 0;opacity:0;
+  }
+  .year-strip .ys-month.has-events .ys-dot{opacity:1;}
+  .year-strip .ys-month.active .ys-dot{background:#fff;}
+
   .teams-bar{
     display:flex;
     align-items:center;
@@ -277,6 +303,9 @@
     .project-card{padding:13px 15px;margin-bottom:12px;}
     .project-card .p-name{font-size:15px;}
     .project-card .p-meta{font-size:13px;}
+    .year-strip{padding:10px 12px;}
+    .year-strip .ys-year{font-size:13.5px;}
+    .year-strip .ys-month{font-size:13px;padding:9px 5px;}
   }
 
   /* ===== Tablet ===== */
@@ -317,6 +346,9 @@
     .project-card{padding:8px 10px;margin-bottom:8px;}
     .project-card .p-name{font-size:12.5px;}
     .project-card .p-meta{font-size:10.5px;}
+    .year-strip{padding:6px 8px;gap:3px;}
+    .year-strip .ys-year{font-size:10.5px;margin-right:2px;}
+    .year-strip .ys-month{font-size:9px;padding:5px 1px;min-width:22px;}
   }
 
   @media (max-width:420px){
@@ -351,6 +383,8 @@
         <button class="today-btn" id="todayBtn">오늘</button>
       </div>
     </div>
+
+    <div class="year-strip" id="yearStrip"></div>
 
     <div class="teams-bar" id="teamsBar">
       <span class="label">팀 필터</span>
@@ -749,6 +783,41 @@ function renderCalendar(){
     cell.addEventListener('click', ()=> openEventModal(null, key));
     grid.appendChild(cell);
   }
+
+  renderYearStrip();
+}
+
+/* ---------- Year strip (연간 한눈에 보기) ---------- */
+function monthHasEvents(y, m){
+  const first = `${y}-${pad(m+1)}-01`;
+  const lastDay = new Date(y, m+1, 0).getDate();
+  const last = `${y}-${pad(m+1)}-${pad(lastDay)}`;
+  return events.some(ev => ev.start && ev.start <= last && (ev.end || ev.start) >= first);
+}
+
+function renderYearStrip(){
+  const bar = document.getElementById('yearStrip');
+  if(!bar) return;
+  bar.innerHTML = '';
+  const y = current.getFullYear();
+  const activeMonth = current.getMonth();
+
+  const yearLabel = document.createElement('div');
+  yearLabel.className = 'ys-year';
+  yearLabel.textContent = y + '년';
+  bar.appendChild(yearLabel);
+
+  const monthNames = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+  monthNames.forEach((label, m)=>{
+    const el = document.createElement('div');
+    el.className = 'ys-month' + (m===activeMonth ? ' active' : '') + (monthHasEvents(y,m) ? ' has-events' : '');
+    el.innerHTML = `${label}<span class="ys-dot"></span>`;
+    el.addEventListener('click', ()=>{
+      current = new Date(y, m, 1);
+      renderCalendar();
+    });
+    bar.appendChild(el);
+  });
 }
 
 document.getElementById('prevBtn').addEventListener('click', ()=>{
