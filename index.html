@@ -86,24 +86,36 @@
     overflow:hidden;
   }
   .ys-head{
-    display:flex;align-items:center;gap:6px;
-    padding:10px 12px;cursor:pointer;user-select:none;
+    display:flex;align-items:center;
+    padding:10px 12px 6px;
     font-size:12.5px;font-weight:700;color:var(--muted);
   }
-  .ys-head:hover{background:var(--bg);}
-  .ys-head .ys-arrow{font-size:11px;transition:transform .15s ease;display:inline-block;}
-  .year-strip.open .ys-head .ys-arrow{transform:rotate(90deg);}
-  .ys-yr-nav{
-    border:none;background:transparent;cursor:pointer;font-size:13px;font-weight:700;
-    color:var(--muted);width:20px;height:20px;border-radius:6px;line-height:1;
-    display:inline-flex;align-items:center;justify-content:center;
+  .ys-year-dropdown{position:relative;display:inline-block;}
+  .ys-year-btn{
+    border:none;background:transparent;cursor:pointer;
+    font-size:12.5px;font-weight:700;color:var(--muted);
+    padding:4px 6px;border-radius:6px;
+    display:inline-flex;align-items:center;gap:4px;
   }
-  .ys-yr-nav:hover{background:var(--border);color:var(--text);}
-  .ys-year-label{padding:0 1px;}
+  .ys-year-btn:hover{background:var(--bg);color:var(--text);}
+  .ys-year-caret{font-size:10px;}
+  .ys-year-panel{
+    position:absolute;top:calc(100% + 4px);left:0;
+    width:96px;max-height:170px;overflow-y:auto;
+    background:#fff;border:1px solid var(--border);border-radius:10px;
+    box-shadow:0 10px 28px rgba(0,0,0,.14);
+    display:none;z-index:30;
+  }
+  .ys-year-panel.open{display:block;}
+  .ys-year-item{
+    padding:9px 14px;font-size:13px;line-height:16px;font-weight:600;
+    color:var(--text);text-align:center;cursor:pointer;
+  }
+  .ys-year-item:hover{background:var(--bg);}
+  .ys-year-item.active{background:var(--accent);color:#fff;}
   .ys-months{
-    display:none;align-items:center;gap:5px;flex-wrap:wrap;padding:0 10px 10px;
+    display:flex;align-items:center;gap:5px;flex-wrap:wrap;padding:0 10px 10px;
   }
-  .year-strip.open .ys-months{display:flex;}
   .ys-month{
     flex:1;min-width:36px;text-align:center;padding:7px 4px;border-radius:8px;
     font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;user-select:none;
@@ -772,9 +784,9 @@ function renderCalendar(){
   renderYearStrip();
 }
 
-/* ---------- Year strip (연도만 아코디언으로 접고 펼치기) ---------- */
+/* ---------- Year strip (연도 드롭다운 선택 + 월 목록 상시 표시) ---------- */
 const MONTH_NAMES = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
-let yearStripOpen = true;
+const YEAR_MIN = 2020, YEAR_MAX = 2040;
 
 function monthHasEvents(y, m){
   const first = `${y}-${pad(m+1)}-01`;
@@ -787,55 +799,49 @@ function renderYearStrip(){
   const wrap = document.getElementById('yearStrip');
   if(!wrap) return;
   wrap.innerHTML = '';
-  wrap.className = 'year-strip' + (yearStripOpen ? ' open' : '');
+  wrap.className = 'year-strip';
   const y = current.getFullYear();
   const activeMonth = current.getMonth();
 
   const head = document.createElement('div');
   head.className = 'ys-head';
 
-  const arrow = document.createElement('span');
-  arrow.className = 'ys-arrow';
-  arrow.textContent = '▸';
-  arrow.addEventListener('click', ()=>{
-    yearStripOpen = !yearStripOpen;
-    renderYearStrip();
-  });
-  head.appendChild(arrow);
+  const dropdown = document.createElement('div');
+  dropdown.className = 'ys-year-dropdown';
 
-  const yrPrev = document.createElement('button');
-  yrPrev.type = 'button';
-  yrPrev.className = 'ys-yr-nav';
-  yrPrev.textContent = '‹';
-  yrPrev.title = '이전 연도';
-  yrPrev.addEventListener('click', (e)=>{
+  const yearBtn = document.createElement('button');
+  yearBtn.type = 'button';
+  yearBtn.className = 'ys-year-btn';
+  yearBtn.innerHTML = `${y}년 <span class="ys-year-caret">▾</span>`;
+  dropdown.appendChild(yearBtn);
+
+  const panel = document.createElement('div');
+  panel.className = 'ys-year-panel';
+  for(let yy = YEAR_MAX; yy >= YEAR_MIN; yy--){
+    const item = document.createElement('div');
+    item.className = 'ys-year-item' + (yy===y ? ' active' : '');
+    item.textContent = `${yy}년`;
+    item.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      current.setFullYear(yy);
+      renderCalendar();
+    });
+    panel.appendChild(item);
+  }
+  dropdown.appendChild(panel);
+
+  yearBtn.addEventListener('click', (e)=>{
     e.stopPropagation();
-    current.setFullYear(current.getFullYear()-1);
-    renderCalendar();
+    const willOpen = !panel.classList.contains('open');
+    document.querySelectorAll('.ys-year-panel.open').forEach(p=>p.classList.remove('open'));
+    if(willOpen){
+      panel.classList.add('open');
+      const activeItem = panel.querySelector('.ys-year-item.active');
+      if(activeItem) panel.scrollTop = activeItem.offsetTop;
+    }
   });
-  head.appendChild(yrPrev);
 
-  const yearLabel = document.createElement('span');
-  yearLabel.className = 'ys-year-label';
-  yearLabel.textContent = `${y}년`;
-  yearLabel.addEventListener('click', ()=>{
-    yearStripOpen = !yearStripOpen;
-    renderYearStrip();
-  });
-  head.appendChild(yearLabel);
-
-  const yrNext = document.createElement('button');
-  yrNext.type = 'button';
-  yrNext.className = 'ys-yr-nav';
-  yrNext.textContent = '›';
-  yrNext.title = '다음 연도';
-  yrNext.addEventListener('click', (e)=>{
-    e.stopPropagation();
-    current.setFullYear(current.getFullYear()+1);
-    renderCalendar();
-  });
-  head.appendChild(yrNext);
-
+  head.appendChild(dropdown);
   wrap.appendChild(head);
 
   const monthsRow = document.createElement('div');
@@ -852,6 +858,13 @@ function renderYearStrip(){
   });
   wrap.appendChild(monthsRow);
 }
+
+document.addEventListener('click', (e)=>{
+  const openPanel = document.querySelector('.ys-year-panel.open');
+  if(openPanel && !openPanel.parentElement.contains(e.target)){
+    openPanel.classList.remove('open');
+  }
+});
 
 /* ---------- Event modal ---------- */
 const eventOverlay = document.getElementById('eventOverlay');
