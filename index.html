@@ -77,7 +77,21 @@
   .btn.ghost{background:transparent;color:var(--muted);border:1px solid var(--border);}
 
 
-  .year-accordion{
+  .toolbar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:14px;
+    margin-bottom:16px;
+  }
+  .nav{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--border);padding:6px 8px;border-radius:12px;box-shadow:var(--shadow);}
+  .nav button{border:none;background:transparent;cursor:pointer;font-size:16px;color:var(--text);width:30px;height:30px;border-radius:8px;}
+  .nav button:hover{background:var(--bg);}
+  .nav .month-label{font-weight:700;font-size:15px;min-width:110px;text-align:center;}
+  .nav .today-btn{font-size:12px;color:var(--accent);font-weight:600;background:transparent;border:1px solid var(--accent);padding:5px 10px;border-radius:8px;width:auto;}
+
+  .year-strip{
     background:var(--card);
     border:1px solid var(--border);
     border-radius:12px;
@@ -85,43 +99,30 @@
     margin-bottom:16px;
     overflow:hidden;
   }
-  .ya-top{
-    display:flex;align-items:center;justify-content:space-between;
-    padding:11px 14px;border-bottom:1px solid var(--border);gap:10px;flex-wrap:wrap;
+  .ys-head{
+    display:flex;align-items:center;gap:6px;
+    padding:10px 12px;cursor:pointer;user-select:none;
+    font-size:12.5px;font-weight:700;color:var(--muted);
   }
-  .ya-top .ya-current{font-size:14px;font-weight:700;}
-  .ya-top .ya-today-btn{
-    font-size:12px;color:var(--accent);font-weight:600;background:transparent;
-    border:1px solid var(--accent);padding:5px 10px;border-radius:8px;cursor:pointer;
+  .ys-head:hover{background:var(--bg);}
+  .ys-head .ys-arrow{font-size:11px;transition:transform .15s ease;display:inline-block;}
+  .year-strip.open .ys-head .ys-arrow{transform:rotate(90deg);}
+  .ys-months{
+    display:none;align-items:center;gap:5px;flex-wrap:wrap;padding:0 10px 10px;
   }
-  .ya-top .ya-today-btn:hover{background:var(--accent);color:#fff;}
-  .ya-year{border-bottom:1px solid var(--border);}
-  .ya-year:last-child{border-bottom:none;}
-  .ya-year-head{
-    display:flex;align-items:center;justify-content:space-between;
-    padding:11px 14px;cursor:pointer;user-select:none;font-weight:700;font-size:13.5px;
-    color:var(--text);
-  }
-  .ya-year-head:hover{background:var(--bg);}
-  .ya-year-head.is-this-year{color:var(--accent);}
-  .ya-year-head .ya-arrow{color:var(--muted);font-size:11px;transition:transform .15s ease;display:inline-block;}
-  .ya-year.open .ya-year-head .ya-arrow{transform:rotate(90deg);}
-  .ya-months{
-    display:none;grid-template-columns:repeat(6,1fr);gap:6px;padding:2px 14px 14px;
-  }
-  .ya-year.open .ya-months{display:grid;}
-  .ya-month{
-    text-align:center;padding:8px 4px;border-radius:8px;
+  .year-strip.open .ys-months{display:flex;}
+  .ys-month{
+    flex:1;min-width:36px;text-align:center;padding:7px 4px;border-radius:8px;
     font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;user-select:none;
   }
-  .ya-month:hover{background:var(--bg);}
-  .ya-month.active{background:var(--accent);color:#fff;}
-  .ya-month .ya-dot{
+  .ys-month:hover{background:var(--bg);}
+  .ys-month.active{background:var(--accent);color:#fff;}
+  .ys-month .ys-dot{
     display:block;width:4px;height:4px;border-radius:50%;background:var(--accent);
     margin:3px auto 0;opacity:0;
   }
-  .ya-month.has-events .ya-dot{opacity:1;}
-  .ya-month.active .ya-dot{background:#fff;}
+  .ys-month.has-events .ys-dot{opacity:1;}
+  .ys-month.active .ys-dot{background:#fff;}
 
   .calendar{
     background:var(--card);
@@ -304,9 +305,8 @@
     .project-card{padding:13px 15px;margin-bottom:12px;}
     .project-card .p-name{font-size:15px;}
     .project-card .p-meta{font-size:13px;}
-    .ya-top .ya-current{font-size:15px;}
-    .ya-year-head{font-size:14.5px;padding:13px 16px;}
-    .ya-month{font-size:13px;padding:10px 5px;}
+    .ys-head{font-size:13.5px;padding:12px 14px;}
+    .ys-month{font-size:13px;padding:9px 5px;}
   }
 
   /* ===== Tablet ===== */
@@ -346,12 +346,13 @@
     .project-card{padding:8px 10px;margin-bottom:8px;}
     .project-card .p-name{font-size:12.5px;}
     .project-card .p-meta{font-size:10.5px;}
-    .ya-top{padding:9px 12px;}
-    .ya-top .ya-current{font-size:12.5px;}
-    .ya-top .ya-today-btn{font-size:11px;padding:4px 8px;}
-    .ya-year-head{padding:9px 12px;font-size:12px;}
-    .ya-months{grid-template-columns:repeat(4,1fr);gap:4px;padding:2px 12px 12px;}
-    .ya-month{font-size:11px;padding:6px 3px;}
+    .toolbar{gap:8px;}
+    .nav{width:100%;justify-content:space-between;padding:5px 6px;}
+    .nav .month-label{min-width:0;flex:1;font-size:13.5px;}
+    .nav .today-btn{font-size:11px;padding:4px 8px;}
+    .ys-head{padding:8px 10px;font-size:11px;}
+    .ys-months{gap:3px;padding:0 8px 8px;}
+    .ys-month{font-size:9.5px;padding:5px 2px;min-width:24px;}
   }
 
   @media (max-width:420px){
@@ -381,7 +382,16 @@
   </div>
 
   <div id="calendarView">
-    <div class="year-accordion" id="yearAccordion"></div>
+    <div class="toolbar">
+      <div class="nav">
+        <button id="prevBtn">‹</button>
+        <div class="month-label" id="monthLabel">2026년 8월</div>
+        <button id="nextBtn">›</button>
+        <button class="today-btn" id="todayBtn">오늘</button>
+      </div>
+    </div>
+
+    <div class="year-strip" id="yearStrip"></div>
 
     <div class="calendar">
       <div class="weekdays">
@@ -692,6 +702,7 @@ function toKey(d){return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getD
 
 function renderCalendar(){
   const y = current.getFullYear(), m = current.getMonth();
+  document.getElementById('monthLabel').textContent = `${y}년 ${m+1}월`;
 
   const firstDay = new Date(y, m, 1);
   const startOffset = firstDay.getDay();
@@ -779,12 +790,12 @@ function renderCalendar(){
     grid.appendChild(cell);
   }
 
-  renderYearAccordion();
+  renderYearStrip();
 }
 
-/* ---------- Year accordion (연도별 아코디언으로 월 선택) ---------- */
+/* ---------- Year strip (연도만 아코디언으로 접고 펼치기) ---------- */
 const MONTH_NAMES = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
-let openAccordionYear = current.getFullYear();
+let yearStripOpen = true;
 
 function monthHasEvents(y, m){
   const first = `${y}-${pad(m+1)}-01`;
@@ -793,66 +804,47 @@ function monthHasEvents(y, m){
   return events.some(ev => ev.start && ev.start <= last && (ev.end || ev.start) >= first);
 }
 
-function renderYearAccordion(){
-  const wrap = document.getElementById('yearAccordion');
+function renderYearStrip(){
+  const wrap = document.getElementById('yearStrip');
   if(!wrap) return;
   wrap.innerHTML = '';
-  const thisYear = new Date().getFullYear();
-  const selY = current.getFullYear();
-  const selM = current.getMonth();
+  wrap.className = 'year-strip' + (yearStripOpen ? ' open' : '');
+  const y = current.getFullYear();
+  const activeMonth = current.getMonth();
 
-  const topRow = document.createElement('div');
-  topRow.className = 'ya-top';
-  const cur = document.createElement('div');
-  cur.className = 'ya-current';
-  cur.textContent = `📍 ${selY}년 ${selM+1}월`;
-  topRow.appendChild(cur);
-  const todayBtn = document.createElement('button');
-  todayBtn.type = 'button';
-  todayBtn.className = 'ya-today-btn';
-  todayBtn.textContent = '오늘';
-  todayBtn.addEventListener('click', ()=>{
-    const now = new Date();
-    current = new Date(now.getFullYear(), now.getMonth(), 1);
-    openAccordionYear = current.getFullYear();
-    renderCalendar();
+  const head = document.createElement('div');
+  head.className = 'ys-head';
+  head.innerHTML = `<span class="ys-arrow">▸</span><span>${y}년</span>`;
+  head.addEventListener('click', ()=>{
+    yearStripOpen = !yearStripOpen;
+    renderYearStrip();
   });
-  topRow.appendChild(todayBtn);
-  wrap.appendChild(topRow);
+  wrap.appendChild(head);
 
-  const years = [thisYear-1, thisYear, thisYear+1, thisYear+2];
-  years.forEach(y=>{
-    const isOpen = y === openAccordionYear;
-    const yearEl = document.createElement('div');
-    yearEl.className = 'ya-year' + (isOpen ? ' open' : '');
-
-    const head = document.createElement('div');
-    head.className = 'ya-year-head' + (y === thisYear ? ' is-this-year' : '');
-    head.innerHTML = `<span>${y}년</span><span class="ya-arrow">▸</span>`;
-    head.addEventListener('click', ()=>{
-      openAccordionYear = (openAccordionYear === y) ? -1 : y;
-      renderYearAccordion();
+  const monthsRow = document.createElement('div');
+  monthsRow.className = 'ys-months';
+  MONTH_NAMES.forEach((label, m)=>{
+    const el = document.createElement('div');
+    el.className = 'ys-month' + (m===activeMonth ? ' active' : '') + (monthHasEvents(y,m) ? ' has-events' : '');
+    el.innerHTML = `${label}<span class="ys-dot"></span>`;
+    el.addEventListener('click', ()=>{
+      current = new Date(y, m, 1);
+      renderCalendar();
     });
-    yearEl.appendChild(head);
-
-    const monthsEl = document.createElement('div');
-    monthsEl.className = 'ya-months';
-    MONTH_NAMES.forEach((label, m)=>{
-      const el = document.createElement('div');
-      const isActive = (y === selY && m === selM);
-      el.className = 'ya-month' + (isActive ? ' active' : '') + (monthHasEvents(y,m) ? ' has-events' : '');
-      el.innerHTML = `${label}<span class="ya-dot"></span>`;
-      el.addEventListener('click', ()=>{
-        current = new Date(y, m, 1);
-        renderCalendar();
-      });
-      monthsEl.appendChild(el);
-    });
-    yearEl.appendChild(monthsEl);
-
-    wrap.appendChild(yearEl);
+    monthsRow.appendChild(el);
   });
+  wrap.appendChild(monthsRow);
 }
+
+document.getElementById('prevBtn').addEventListener('click', ()=>{
+  current.setMonth(current.getMonth()-1); renderCalendar();
+});
+document.getElementById('nextBtn').addEventListener('click', ()=>{
+  current.setMonth(current.getMonth()+1); renderCalendar();
+});
+document.getElementById('todayBtn').addEventListener('click', ()=>{
+  current = new Date(); current.setDate(1); renderCalendar();
+});
 
 /* ---------- Event modal ---------- */
 const eventOverlay = document.getElementById('eventOverlay');
