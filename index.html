@@ -274,7 +274,7 @@
     <h2>팀 추가</h2>
     <div class="field">
       <label>팀 이름</label>
-      <input type="text" id="tName" placeholder="예: 퍼블리싱팀">
+      <input type="text" id="tName" placeholder="예: 퍼블리싱">
     </div>
     <div class="field">
       <label>색상</label>
@@ -333,8 +333,8 @@ const eventsCol = collection(db, "events");
 async function ensureSeedTeams(){
   const snap = await getDocs(teamsCol);
   if(snap.empty){
-    await addDoc(teamsCol, {name:"디자인팀", color:"#4f7cff", order:0});
-    await addDoc(teamsCol, {name:"퍼블리싱팀", color:"#22b573", order:1});
+    await addDoc(teamsCol, {name:"디자인", color:"#4f7cff", order:0});
+    await addDoc(teamsCol, {name:"퍼블리싱", color:"#22b573", order:1});
   }
 }
 
