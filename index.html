@@ -190,16 +190,20 @@
     max-width:100%;
   }
 
+  .evt-row{display:flex;align-items:center;gap:4px;margin-bottom:3px;cursor:pointer;}
+  .evt-icons{display:flex;align-items:center;gap:3px;flex:none;}
+  .evt-icons .evt-status-ico{font-size:11px;line-height:1;}
   .evt{
     font-size:11px;
     padding:3px 7px;
     border-radius:6px;
-    margin-bottom:3px;
     color:#fff;
     overflow:hidden;
     font-weight:600;
     border-left:3px solid rgba(255,255,255,.85);
     line-height:1.35;
+    flex:1;
+    min-width:0;
   }
   .evt .evt-main{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .evt .evt-sub{
@@ -349,9 +353,8 @@
     font-size:8px;font-weight:700;color:var(--muted);
   }
   .evt-team-dot{
-    display:inline-block;width:6px;height:6px;border-radius:50%;flex:none;
-    margin-right:4px;vertical-align:middle;
-    box-shadow:0 0 0 1px rgba(255,255,255,.7);
+    display:inline-block;width:8px;height:8px;border-radius:50%;flex:none;
+    box-shadow:0 0 0 1px rgba(255,255,255,.9), 0 0 0 1.5px rgba(20,22,35,.15);
   }
 
   footer{margin-top:22px;text-align:center;color:var(--muted);font-size:12px;line-height:1.7;}
@@ -363,6 +366,8 @@
     .cell .daynum{font-size:14px;}
     .evt{font-size:12.5px;padding:4px 8px;}
     .evt .evt-sub{font-size:10.5px;}
+    .evt-team-dot{width:9px;height:9px;}
+    .evt-icons .evt-status-ico{font-size:12.5px;}
     header.top h1{font-size:23px;}
     .weekdays div{font-size:13px;padding:12px 0;}
     .holiday-label{font-size:10.5px;}
@@ -374,6 +379,8 @@
     .cell .daynum{font-size:15px;}
     .evt{font-size:13.5px;padding:5px 9px;}
     .evt .evt-sub{font-size:11px;}
+    .evt-team-dot{width:9px;height:9px;}
+    .evt-icons .evt-status-ico{font-size:13px;}
     header.top h1{font-size:25px;}
     .weekdays div{font-size:14px;padding:13px 0;}
     .holiday-label{font-size:11.5px;}
@@ -417,8 +424,11 @@
     .cell .daynum{font-size:11px;}
     .cell.today .daynum{width:17px;height:17px;font-size:10.5px;}
     .holiday-label{font-size:8px;}
-    .evt{font-size:8.5px;padding:2px 4px;border-left-width:2px;margin-bottom:2px;}
+    .evt-row{margin-bottom:2px;gap:2px;}
+    .evt{font-size:8.5px;padding:2px 4px;border-left-width:2px;}
     .evt .evt-sub{display:none;}
+    .evt-team-dot{width:6px;height:6px;}
+    .evt-icons .evt-status-ico{font-size:8.5px;}
     .more-link{font-size:8.5px;}
     .modal{padding:16px;max-width:none;width:100%;}
     footer{font-size:10.5px;}
@@ -576,6 +586,19 @@
       <div class="right">
         <button class="btn ghost" id="cancelAdminBtn">취소</button>
         <button class="btn" id="confirmAdminBtn">확인</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Day detail list modal -->
+<div class="overlay" id="dayListOverlay">
+  <div class="modal" style="max-width:420px;">
+    <h2 id="dayListTitle">일정 목록</h2>
+    <div id="dayListBody"></div>
+    <div class="modal-actions">
+      <div class="right">
+        <button class="btn" id="closeDayListBtn">닫기</button>
       </div>
     </div>
   </div>
@@ -771,6 +794,7 @@ let current = new Date();
 current.setDate(1);
 let editingEventId = null;
 let editingProjectId = null;
+let eventsLoaded = false, projectsLoaded = false, autoSyncDone = false;
 
 const teamsCol = collection(db, "teams");
 const eventsCol = collection(db, "events");
@@ -799,18 +823,43 @@ onSnapshot(query(teamsCol, orderBy("order","asc")), (snap)=>{
 
 onSnapshot(eventsCol, (snap)=>{
   events = snap.docs.map(d=>({id:d.id, ...d.data()}));
+  eventsLoaded = true;
   renderCalendar();
   renderProjects();
   updateAdminBtn();
   if(pendingOverlay.classList.contains('show')) renderPendingList();
+  autoSyncProjectsFromEvents();
 });
 
 onSnapshot(projectsCol, (snap)=>{
   projects = snap.docs.map(d=>({id:d.id, ...d.data()}));
+  projectsLoaded = true;
   populateProjectDatalist();
   renderProjects();
   renderCalendar();
+  autoSyncProjectsFromEvents();
 });
+
+/* 이 동기화 기능이 생기기 전에 이미 캘린더에 등록돼 있던 일정들은 프로젝트 진행상황에
+   자동으로 반영되지 않았을 수 있으므로, 접속 시 한 번 비어있는 프로젝트를 보완해준다.
+   (새 일정 저장 시에는 saveEventBtn 핸들러에서 바로바로 동기화됨) */
+function autoSyncProjectsFromEvents(){
+  if(autoSyncDone || !eventsLoaded || !projectsLoaded) return;
+  autoSyncDone = true;
+  const seen = new Set();
+  events.forEach(ev=>{
+    const name = (ev.projectName || '').trim();
+    if(!name) return;
+    const key = name.toLowerCase();
+    if(seen.has(key)) return;
+    seen.add(key);
+    if(findProjectByName(name)) return;
+    addDoc(projectsCol, {
+      name, client: ev.client || '', manager: ev.manager || '',
+      status: '예정', memo: '', color: null, createdAt: serverTimestamp()
+    }).catch(()=>{});
+  });
+}
 
 ensureSeedTeams();
 
@@ -894,14 +943,37 @@ function renderCalendar(){
       .filter(ev => key >= ev.start && key <= (ev.end || ev.start))
       .sort((a,b)=> a.start.localeCompare(b.start));
 
-    const maxShow = 2;
-    dayEvents.slice(0,maxShow).forEach(ev=>{
+    /* 숨김 없이 하루의 모든 일정을 그대로 표시. 진행 상태 아이콘·담당 팀 점은
+       색상 박스 밖(evt-icons)에 두어 박스 배경색과 겹쳐 안 보이는 문제를 방지. */
+    dayEvents.forEach(ev=>{
       const team = teams.find(t=>t.id===ev.teamId);
       const project = findProjectByName(ev.projectName);
-      const chip = document.createElement('div');
       const statusClass = ev.status==='완료' ? ' status-done' : '';
       const approval = ev.approval || 'approved';
       const approvalClass = approval==='pending' ? ' appr-pending' : approval==='rejected' ? ' appr-rejected' : '';
+
+      const row = document.createElement('div');
+      row.className = 'evt-row';
+
+      const icons = document.createElement('div');
+      icons.className = 'evt-icons';
+      if(team){
+        const teamDot = document.createElement('span');
+        teamDot.className = 'evt-team-dot';
+        teamDot.style.background = team.color;
+        teamDot.title = team.name;
+        icons.appendChild(teamDot);
+      }
+      if(STATUS_ICONS[ev.status]){
+        const statusIco = document.createElement('span');
+        statusIco.className = 'evt-status-ico';
+        statusIco.textContent = STATUS_ICONS[ev.status].trim();
+        statusIco.title = ev.status;
+        icons.appendChild(statusIco);
+      }
+      row.appendChild(icons);
+
+      const chip = document.createElement('div');
       chip.className = 'evt' + statusClass + approvalClass;
       chip.style.background = (project && project.color) || (team ? team.color : '#94a3b8');
 
@@ -910,15 +982,9 @@ function renderCalendar(){
 
       const main = document.createElement('div');
       main.className = 'evt-main';
-      if(team){
-        const teamDot = document.createElement('span');
-        teamDot.className = 'evt-team-dot';
-        teamDot.style.background = team.color;
-        teamDot.title = team.name;
-        main.appendChild(teamDot);
-      }
-      main.appendChild(document.createTextNode(approvalIcon + (STATUS_ICONS[ev.status] || '') + displayName));
+      main.appendChild(document.createTextNode(approvalIcon + displayName));
       chip.appendChild(main);
+      row.appendChild(chip);
 
       const tooltipParts = [displayName];
       if(team) tooltipParts.push('담당팀: '+team.name);
@@ -928,19 +994,15 @@ function renderCalendar(){
       if(approval==='pending') tooltipParts.push('🕓 승인 대기중');
       if(approval==='rejected') tooltipParts.push('🚫 반려됨' + (ev.rejectReason ? ' - '+ev.rejectReason : ''));
       if(ev.memo) tooltipParts.push(ev.memo);
-      chip.title = tooltipParts.join(' · ');
+      row.title = tooltipParts.join(' · ');
 
-      chip.addEventListener('click', (e)=>{ e.stopPropagation(); openEventModal(ev); });
-      cell.appendChild(chip);
+      row.addEventListener('click', (e)=>{ e.stopPropagation(); openEventModal(ev); });
+      cell.appendChild(row);
     });
-    if(dayEvents.length > maxShow){
-      const more = document.createElement('div');
-      more.className = 'more-link';
-      more.textContent = `+${dayEvents.length - maxShow}개 더`;
-      cell.appendChild(more);
-    }
 
-    cell.addEventListener('click', ()=> openEventModal(null, key));
+    /* 빈 공간을 눌렀을 때는 새 일정을 바로 만들지 않고, 그날의 상세 목록을 보여준다.
+       일정 추가는 오직 상단 "+ 일정 추가" 버튼으로만 하도록 한다. */
+    cell.addEventListener('click', ()=> openDayListModal(key));
     grid.appendChild(cell);
   }
 
@@ -1254,6 +1316,49 @@ function openAdminOverlay(){
   adminPasswordInput.focus();
 }
 function closeAdminOverlay(){ adminOverlay.classList.remove('show'); }
+
+/* ---------- Day detail list (날짜 칸을 눌렀을 때 그날의 모든 일정을 보여줌) ---------- */
+const dayListOverlay = document.getElementById('dayListOverlay');
+function formatDayTitle(key){
+  const [y,m,d] = key.split('-').map(Number);
+  const wd = ['일','월','화','수','목','금','토'][new Date(y, m-1, d).getDay()];
+  return `${y}. ${m}. ${d}. (${wd})`;
+}
+function openDayListModal(key){
+  document.getElementById('dayListTitle').textContent = formatDayTitle(key);
+  const body = document.getElementById('dayListBody');
+  const dayEvents = events
+    .filter(ev => ev.teamId && !activeFilters.has(ev.teamId))
+    .filter(ev => key >= ev.start && key <= (ev.end || ev.start))
+    .sort((a,b)=> a.start.localeCompare(b.start));
+  body.innerHTML = '';
+  if(dayEvents.length === 0){
+    body.innerHTML = '<div class="pending-empty">등록된 일정이 없어요</div>';
+  } else {
+    dayEvents.forEach(ev=>{
+      const team = teams.find(t=>t.id===ev.teamId);
+      const project = findProjectByName(ev.projectName);
+      const approval = ev.approval || 'approved';
+      const approvalIcon = approval==='pending' ? '🕓 ' : approval==='rejected' ? '🚫 ' : '';
+      const statusIcon = STATUS_ICONS[ev.status] || '';
+      const dateRange = ev.end && ev.end !== ev.start ? `${ev.start} ~ ${ev.end}` : ev.start;
+      const row = document.createElement('div');
+      row.className = 'pending-item';
+      row.innerHTML = `
+        <div class="pending-item-main">
+          <span class="pending-dot" style="background:${(project && project.color) || (team ? team.color : '#999')}"></span>
+          <span>${statusIcon}${escapeHtml(approvalIcon + (ev.projectName || ev.title || '(제목 없음)'))}</span>
+        </div>
+        <div class="pending-item-sub">${escapeHtml(dateRange)}${team ? ' · '+escapeHtml(team.name) : ''}${ev.client ? ' · '+escapeHtml(ev.client) : ''}${ev.manager ? ' · '+escapeHtml(ev.manager) : ''}</div>
+      `;
+      row.addEventListener('click', ()=>{ closeDayListModal(); openEventModal(ev); });
+      body.appendChild(row);
+    });
+  }
+  dayListOverlay.classList.add('show');
+}
+function closeDayListModal(){ dayListOverlay.classList.remove('show'); }
+document.getElementById('closeDayListBtn').addEventListener('click', closeDayListModal);
 
 function renderPendingList(){
   const body = document.getElementById('pendingListBody');
