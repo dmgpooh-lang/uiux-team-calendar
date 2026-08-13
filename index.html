@@ -93,6 +93,11 @@
     box-shadow:var(--shadow);
     margin-bottom:16px;
   }
+  .status-legend{
+    display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+    margin:-6px 0 12px 2px;font-size:12px;color:var(--muted);
+  }
+  .status-legend span:first-child{font-weight:700;color:var(--text);}
   .ys-head{
     display:flex;align-items:center;
     padding:10px 12px 6px;
@@ -311,6 +316,7 @@
   }
   .field input:focus, .field textarea:focus, .field select:focus{outline:2px solid var(--accent);outline-offset:0;background:#fff;}
   .field textarea{resize:vertical;min-height:56px;}
+  .field-hint{font-size:11px;color:var(--muted);margin-top:5px;}
   .row2{display:flex;gap:10px;}
   .row2 .field{flex:1;}
   .modal-actions{display:flex;justify-content:space-between;align-items:center;margin-top:18px;gap:8px;}
@@ -461,6 +467,13 @@
   <div id="calendarView">
     <div class="year-strip" id="yearStrip"></div>
 
+    <div class="status-legend">
+      <span>진행 상태</span>
+      <span>📝 계획</span>
+      <span>⏳ 진행중</span>
+      <span>✅ 완료</span>
+    </div>
+
     <div class="calendar">
       <div class="weekdays">
         <div>일</div><div>월</div><div>화</div><div>수</div><div>목</div><div>금</div><div>토</div>
@@ -522,6 +535,11 @@
     <div class="field">
       <label>담당 팀</label>
       <select id="fTeam"></select>
+    </div>
+    <div class="field">
+      <label>캘린더 색상 (선택)</label>
+      <div class="color-row" id="eventColorRow"></div>
+      <div class="field-hint">같은 프로젝트명으로 등록된 다른 일정에도 함께 적용돼요.</div>
     </div>
     <div class="field">
       <label>진행 상태</label>
@@ -639,14 +657,6 @@
         <label>담당자 (선택)</label>
         <input type="text" id="pManager" placeholder="예: 홍길동">
       </div>
-    </div>
-    <div class="field">
-      <label>담당 팀</label>
-      <select id="pTeam"></select>
-    </div>
-    <div class="field">
-      <label>캘린더 색상 (선택)</label>
-      <div class="color-row" id="projectColorRow"></div>
     </div>
     <div class="field">
       <label>진행 상태</label>
@@ -887,16 +897,13 @@ function renderCalendar(){
     const maxShow = 2;
     dayEvents.slice(0,maxShow).forEach(ev=>{
       const team = teams.find(t=>t.id===ev.teamId);
-      const project = ev.projectName
-        ? projects.find(p => p.name && p.name.trim().toLowerCase() === ev.projectName.trim().toLowerCase())
-        : null;
+      const project = findProjectByName(ev.projectName);
       const chip = document.createElement('div');
       const statusClass = ev.status==='완료' ? ' status-done' : '';
       const approval = ev.approval || 'approved';
       const approvalClass = approval==='pending' ? ' appr-pending' : approval==='rejected' ? ' appr-rejected' : '';
       chip.className = 'evt' + statusClass + approvalClass;
       chip.style.background = (project && project.color) || (team ? team.color : '#94a3b8');
-      chip.style.borderLeftColor = STATUS_COLORS[ev.status] || 'rgba(255,255,255,.85)';
 
       const displayName = ev.projectName || ev.title || '(제목 없음)';
       const approvalIcon = approval==='pending' ? '🕓 ' : approval==='rejected' ? '🚫 ' : '';
@@ -912,13 +919,6 @@ function renderCalendar(){
       }
       main.appendChild(document.createTextNode(approvalIcon + (STATUS_ICONS[ev.status] || '') + displayName));
       chip.appendChild(main);
-
-      if(ev.client){
-        const sub = document.createElement('div');
-        sub.className = 'evt-sub';
-        sub.textContent = ev.client;
-        chip.appendChild(sub);
-      }
 
       const tooltipParts = [displayName];
       if(team) tooltipParts.push('담당팀: '+team.name);
@@ -1033,7 +1033,7 @@ document.addEventListener('click', (e)=>{
 const eventOverlay = document.getElementById('eventOverlay');
 function populateTeamSelect(){
   const opts = teams.map(t=>`<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
-  ['fTeam','pTeam'].forEach(id=>{
+  ['fTeam'].forEach(id=>{
     const sel = document.getElementById(id);
     const prev = sel.value;
     sel.innerHTML = opts;
@@ -1099,6 +1099,41 @@ function renderApprovalRow(ev){
   });
 }
 
+let selectedEventColor = null;
+function buildEventColorRow(){
+  const erow = document.getElementById('eventColorRow');
+  erow.innerHTML = '';
+  const noneSw = document.createElement('div');
+  noneSw.className = 'swatch swatch-none' + (!selectedEventColor ? ' sel' : '');
+  noneSw.textContent = '기본';
+  noneSw.title = '기본 (담당 팀 색상 사용)';
+  noneSw.addEventListener('click', ()=>{
+    selectedEventColor = null;
+    [...erow.children].forEach(el=>el.classList.remove('sel'));
+    noneSw.classList.add('sel');
+  });
+  erow.appendChild(noneSw);
+  DEFAULT_COLORS.forEach(c=>{
+    const sw = document.createElement('div');
+    sw.className = 'swatch' + (c===selectedEventColor ? ' sel' : '');
+    sw.style.background = c;
+    sw.addEventListener('click', ()=>{
+      selectedEventColor = c;
+      [...erow.children].forEach(el=>el.classList.remove('sel'));
+      sw.classList.add('sel');
+    });
+    erow.appendChild(sw);
+  });
+}
+/* 프로젝트명이 이미 등록된 프로젝트와 일치하면, 그 프로젝트에 지정된 색상을 자동으로 보여줌 */
+document.getElementById('fProject').addEventListener('input', ()=>{
+  const matched = findProjectByName(document.getElementById('fProject').value);
+  if(matched){
+    selectedEventColor = matched.color || null;
+    buildEventColorRow();
+  }
+});
+
 function captureEventFormSnapshot(){
   return JSON.stringify({
     p: document.getElementById('fProject').value,
@@ -1108,7 +1143,8 @@ function captureEventFormSnapshot(){
     e: document.getElementById('fEnd').value,
     memo: document.getElementById('fMemo').value,
     team: document.getElementById('fTeam').value,
-    status: selectedStatus
+    status: selectedStatus,
+    color: selectedEventColor
   });
 }
 let eventFormSnapshot = null;
@@ -1123,6 +1159,9 @@ function openEventModal(ev, dateKey){
   document.getElementById('fMemo').value = ev ? (ev.memo || '') : '';
   if(ev && ev.teamId) document.getElementById('fTeam').value = ev.teamId;
   setSelectedStatus(ev && ev.status ? ev.status : '계획');
+  const matchedProject = findProjectByName(ev ? (ev.projectName || '') : '');
+  selectedEventColor = matchedProject ? (matchedProject.color || null) : null;
+  buildEventColorRow();
   document.getElementById('deleteEventBtn').style.display = ev ? 'inline-block' : 'none';
   renderApprovalRow(ev);
   eventOverlay.classList.add('show');
@@ -1166,6 +1205,21 @@ document.getElementById('saveEventBtn').addEventListener('click', async ()=>{
   } else {
     await addDoc(eventsCol, data);
   }
+
+  /* 캘린더에 등록/수정한 프로젝트명이 "프로젝트 진행상황"에도 반영되도록 동기화.
+     이미 등록된 프로젝트면 색상만 최신화하고, 처음 보는 프로젝트명이면 새로 만들어준다. */
+  const matchedProject = findProjectByName(projectName);
+  if(matchedProject){
+    if((matchedProject.color || null) !== selectedEventColor){
+      await updateDoc(doc(db,"projects", matchedProject.id), { color: selectedEventColor });
+    }
+  } else {
+    await addDoc(projectsCol, {
+      name: projectName, client, manager, status: '예정', memo: '',
+      color: selectedEventColor, createdAt: serverTimestamp()
+    });
+  }
+
   closeEventModal();
 });
 
@@ -1309,6 +1363,12 @@ document.getElementById('saveTeamBtn').addEventListener('click', async ()=>{
 function escapeHtml(s){
   return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
+function findProjectByName(name){
+  if(!name) return null;
+  const key = name.trim().toLowerCase();
+  if(!key) return null;
+  return projects.find(p => p.name && p.name.trim().toLowerCase() === key) || null;
+}
 
 /* 입력창 밖에서 Backspace/Delete를 누르면 일부 브라우저가 "뒤로 가기"로 처리해
    작성 중이던 모달이 통째로 사라지는 경우가 있어, 편집 가능한 요소가 아닐 때는
@@ -1366,7 +1426,6 @@ function renderProjects(){
   PROJECT_COLS.forEach(col=>{
     const list = projects
       .filter(p=>p.status===col.status)
-      .filter(p=>!p.teamId || !activeFilters.has(p.teamId))
       .filter(p=>{
         if(!q) return true;
         const hay = [p.name, p.client, p.manager].filter(Boolean).join(' ').toLowerCase();
@@ -1385,7 +1444,6 @@ function renderProjects(){
       colEl.appendChild(empty);
     }
     list.forEach(p=>{
-      const team = teams.find(t=>t.id===p.teamId);
       const card = document.createElement('div');
       card.className = 'project-card';
       card.style.borderLeftColor = PROJECT_STATUS_COLORS[col.status];
@@ -1401,12 +1459,6 @@ function renderProjects(){
         metaEl.className = 'p-meta';
         metaEl.textContent = metaParts.join(' · ');
         card.appendChild(metaEl);
-      }
-      if(team){
-        const teamEl = document.createElement('div');
-        teamEl.className = 'p-team';
-        teamEl.innerHTML = `<span class="dot" style="background:${team.color}"></span>${escapeHtml(team.name)}`;
-        card.appendChild(teamEl);
       }
       if(p.memo){
         card.title = p.memo;
@@ -1451,41 +1503,13 @@ document.querySelectorAll('#projectStatusPicker .status-btn').forEach(b=>{
   b.addEventListener('click', ()=> setSelectedProjectStatus(b.dataset.status));
 });
 
-let selectedProjectColor = null;
-function buildProjectColorRow(){
-  const prow = document.getElementById('projectColorRow');
-  prow.innerHTML = '';
-  const noneSw = document.createElement('div');
-  noneSw.className = 'swatch swatch-none' + (!selectedProjectColor ? ' sel' : '');
-  noneSw.textContent = '기본';
-  noneSw.title = '기본 (담당 팀 색상 사용)';
-  noneSw.addEventListener('click', ()=>{
-    selectedProjectColor = null;
-    [...prow.children].forEach(el=>el.classList.remove('sel'));
-    noneSw.classList.add('sel');
-  });
-  prow.appendChild(noneSw);
-  DEFAULT_COLORS.forEach(c=>{
-    const sw = document.createElement('div');
-    sw.className = 'swatch' + (c===selectedProjectColor ? ' sel' : '');
-    sw.style.background = c;
-    sw.addEventListener('click', ()=>{
-      selectedProjectColor = c;
-      [...prow.children].forEach(el=>el.classList.remove('sel'));
-      sw.classList.add('sel');
-    });
-    prow.appendChild(sw);
-  });
-}
 function captureProjectFormSnapshot(){
   return JSON.stringify({
     n: document.getElementById('pName').value,
     c: document.getElementById('pClient').value,
     m: document.getElementById('pManager').value,
     memo: document.getElementById('pMemo').value,
-    team: document.getElementById('pTeam').value,
-    status: selectedProjectStatus,
-    color: selectedProjectColor
+    status: selectedProjectStatus
   });
 }
 let projectFormSnapshot = null;
@@ -1496,10 +1520,7 @@ function openProjectModal(p){
   document.getElementById('pClient').value = p ? (p.client || '') : '';
   document.getElementById('pManager').value = p ? (p.manager || '') : '';
   document.getElementById('pMemo').value = p ? (p.memo || '') : '';
-  if(p && p.teamId) document.getElementById('pTeam').value = p.teamId;
   setSelectedProjectStatus(p && p.status ? p.status : '예정');
-  selectedProjectColor = (p && p.color) ? p.color : null;
-  buildProjectColorRow();
   document.getElementById('deleteProjectBtn').style.display = p ? 'inline-block' : 'none';
   projectOverlay.classList.add('show');
   document.getElementById('pName').focus();
@@ -1521,12 +1542,10 @@ document.getElementById('saveProjectBtn').addEventListener('click', async ()=>{
   const name = document.getElementById('pName').value.trim();
   const client = document.getElementById('pClient').value.trim();
   const manager = document.getElementById('pManager').value.trim();
-  const teamId = document.getElementById('pTeam').value;
   const memo = document.getElementById('pMemo').value.trim();
   if(!name){ alert('프로젝트명을 입력해주세요.'); return; }
-  if(!teamId){ alert('먼저 팀을 추가해주세요.'); return; }
 
-  const data = { name, client, manager, teamId, status: selectedProjectStatus, memo, color: selectedProjectColor, updatedAt: serverTimestamp() };
+  const data = { name, client, manager, status: selectedProjectStatus, memo, updatedAt: serverTimestamp() };
   if(editingProjectId){
     await updateDoc(doc(db,"projects", editingProjectId), data);
   } else {
