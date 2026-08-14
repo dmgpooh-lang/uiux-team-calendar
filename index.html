@@ -500,7 +500,7 @@
       </div>
     </div>
     <div class="projects-toolbar">
-      <input type="text" id="projectSearch" placeholder="🔍 프로젝트명, 발주처, 담당자로 검색">
+      <input type="text" id="projectSearch" placeholder="🔍 프로젝트명, 발주처, 담당자로 검색" autocomplete="off">
     </div>
     <div class="project-cols" id="projectCols"></div>
   </div>
@@ -518,17 +518,17 @@
     <div class="approval-row" id="approvalRow" style="display:none;"></div>
     <div class="field">
       <label>프로젝트명</label>
-      <input type="text" id="fProject" list="projectNameList" placeholder="예: OO 브랜드 리뉴얼 (등록된 프로젝트 중 선택 가능)">
+      <input type="text" id="fProject" list="projectNameList" placeholder="예: OO 브랜드 리뉴얼 (등록된 프로젝트 중 선택 가능)" autocomplete="off">
       <datalist id="projectNameList"></datalist>
     </div>
     <div class="row2">
       <div class="field">
         <label>발주처 (선택)</label>
-        <input type="text" id="fClient" placeholder="예: OO기업">
+        <input type="text" id="fClient" placeholder="예: OO기업" autocomplete="off">
       </div>
       <div class="field">
         <label>담당자 (선택)</label>
-        <input type="text" id="fManager" placeholder="예: 홍길동">
+        <input type="text" id="fManager" placeholder="예: 홍길동" autocomplete="off" data-lpignore="true" data-1p-ignore>
       </div>
     </div>
     <div class="row2">
@@ -560,7 +560,7 @@
     </div>
     <div class="field">
       <label>메모 (선택)</label>
-      <textarea id="fMemo" placeholder="장소, 참고 링크 등"></textarea>
+      <textarea id="fMemo" placeholder="장소, 참고 링크 등" autocomplete="off"></textarea>
     </div>
     <div class="modal-actions">
       <button class="btn danger" id="deleteEventBtn" style="display:none;">삭제</button>
@@ -576,17 +576,21 @@
 <div class="overlay" id="adminOverlay">
   <div class="modal" style="max-width:320px;">
     <h2>관리자 인증</h2>
-    <div class="field">
-      <label>비밀번호</label>
-      <input type="password" id="adminPasswordInput" placeholder="비밀번호를 입력하세요">
-    </div>
-    <div class="modal-actions">
-      <div></div>
-      <div class="right">
-        <button class="btn ghost" id="cancelAdminBtn">취소</button>
-        <button class="btn" id="confirmAdminBtn">확인</button>
+    <!-- 이 필드를 별도의 form 요소로 감싸서, 브라우저가 페이지의 다른 입력창들(담당자 등)을
+         이 비밀번호 입력창과 같은 로그인 폼으로 착각해 "비밀번호로 인식"하는 문제를 막는다. -->
+    <form id="adminForm" autocomplete="off" onsubmit="return false;">
+      <div class="field">
+        <label>비밀번호</label>
+        <input type="password" id="adminPasswordInput" placeholder="비밀번호를 입력하세요" autocomplete="off">
       </div>
-    </div>
+      <div class="modal-actions">
+        <div></div>
+        <div class="right">
+          <button class="btn ghost" type="button" id="cancelAdminBtn">취소</button>
+          <button class="btn" type="button" id="confirmAdminBtn">확인</button>
+        </div>
+      </div>
+    </form>
   </div>
 </div>
 
@@ -646,7 +650,7 @@
     <h2>팀 추가</h2>
     <div class="field">
       <label>팀 이름</label>
-      <input type="text" id="tName" placeholder="예: 퍼블리싱">
+      <input type="text" id="tName" placeholder="예: 퍼블리싱" autocomplete="off">
     </div>
     <div class="field">
       <label>색상</label>
@@ -668,16 +672,16 @@
     <h2 id="projectModalTitle">프로젝트 추가</h2>
     <div class="field">
       <label>프로젝트명</label>
-      <input type="text" id="pName" placeholder="예: OO기업 홈페이지 유지보수">
+      <input type="text" id="pName" placeholder="예: OO기업 홈페이지 유지보수" autocomplete="off">
     </div>
     <div class="row2">
       <div class="field">
         <label>발주처 (선택)</label>
-        <input type="text" id="pClient" placeholder="예: OO기업">
+        <input type="text" id="pClient" placeholder="예: OO기업" autocomplete="off">
       </div>
       <div class="field">
         <label>담당자 (선택)</label>
-        <input type="text" id="pManager" placeholder="예: 홍길동">
+        <input type="text" id="pManager" placeholder="예: 홍길동" autocomplete="off" data-lpignore="true" data-1p-ignore>
       </div>
     </div>
     <div class="field">
@@ -690,7 +694,7 @@
     </div>
     <div class="field">
       <label>메모 (선택)</label>
-      <textarea id="pMemo" placeholder="프로젝트 관련 참고사항"></textarea>
+      <textarea id="pMemo" placeholder="프로젝트 관련 참고사항" autocomplete="off"></textarea>
     </div>
     <div class="modal-actions">
       <button class="btn danger" id="deleteProjectBtn" style="display:none;">삭제</button>
@@ -1142,7 +1146,7 @@ function renderApprovalRow(ev){
   if(isAdmin && approval!=='pending') html += `<button type="button" class="btn ghost" id="revertPendingBtn">승인대기로 되돌리기</button>`;
   if(isAdmin && approval!=='rejected') html += `
     <div class="reject-reason-box" id="rejectReasonBox">
-      <input type="text" id="rejectReasonInput" placeholder="반려 사유 (선택)">
+      <input type="text" id="rejectReasonInput" placeholder="반려 사유 (선택)" autocomplete="off">
       <button type="button" class="btn danger" id="confirmRejectBtn">반려 확정</button>
       <button type="button" class="btn ghost" id="cancelRejectBtn">취소</button>
     </div>`;
