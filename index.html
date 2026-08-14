@@ -915,6 +915,7 @@ onSnapshot(eventsCol, (snap)=>{
   if(pendingOverlay.classList.contains('show')) renderPendingList();
   if(trashOverlay.classList.contains('show')) renderTrashList();
   autoSyncProjectsFromEvents();
+  checkNewPendingNotifications(events.filter(e => (e.approval || 'approved') === 'pending').map(e=>e.id));
 });
 
 onSnapshot(projectsCol, (snap)=>{
@@ -1645,8 +1646,43 @@ function renderTrashList(){
 function openTrashOverlay(){ renderTrashList(); trashOverlay.classList.add('show'); }
 function closeTrashOverlay(){ trashOverlay.classList.remove('show'); }
 
+/* ---------- 승인 대기 브라우저 알림 (관리자 전용) ----------
+   관리자가 로그인한 브라우저에서 새로 등록된 "승인 대기" 일정이 있으면
+   데스크탑 알림으로 알려준다. 이 앱 화면(탭)이 열려 있어야 동작하고,
+   최초 로딩 시점에 이미 대기 중이던 건은 알리지 않고 기준으로만 삼는다. */
+let notifiedPendingIds = null;
+function requestNotifyPermissionIfAdmin(){
+  if(!isAdmin || !('Notification' in window)) return;
+  if(Notification.permission === 'default'){
+    Notification.requestPermission();
+  }
+}
+function checkNewPendingNotifications(currentPendingIds){
+  if(!isAdmin || !('Notification' in window) || Notification.permission !== 'granted'){
+    notifiedPendingIds = new Set(currentPendingIds);
+    return;
+  }
+  if(notifiedPendingIds !== null){
+    currentPendingIds.forEach(id=>{
+      if(!notifiedPendingIds.has(id)){
+        const ev = events.find(e=>e.id===id);
+        if(ev){
+          const dateRange = ev.end && ev.end !== ev.start ? `${ev.start} ~ ${ev.end}` : ev.start;
+          const n = new Notification('🕓 새 일정 승인 대기', {
+            body: `${ev.projectName || ev.title || '(제목 없음)'} · ${dateRange}`,
+            tag: 'pending-'+id,
+          });
+          n.onclick = ()=>{ window.focus(); openPendingOverlay(); };
+        }
+      }
+    });
+  }
+  notifiedPendingIds = new Set(currentPendingIds);
+}
+
 adminBtn.addEventListener('click', ()=>{
-  if(isAdmin) openPendingOverlay(); else openAdminOverlay();
+  if(isAdmin){ openPendingOverlay(); requestNotifyPermissionIfAdmin(); }
+  else openAdminOverlay();
 });
 document.getElementById('cancelAdminBtn').addEventListener('click', closeAdminOverlay);
 adminOverlay.addEventListener('click', (e)=>{ if(e.target===adminOverlay) closeAdminOverlay(); });
@@ -1657,6 +1693,7 @@ async function tryAdminLogin(){
     localStorage.setItem('uiuxAdminUnlocked', '1');
     closeAdminOverlay();
     updateAdminBtn();
+    requestNotifyPermissionIfAdmin();
   } else {
     alert('비밀번호가 올바르지 않습니다.');
   }
