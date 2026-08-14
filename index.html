@@ -897,6 +897,13 @@ function renderMiniTeamFilter(){
 /* ---------- Calendar rendering ---------- */
 function pad(n){return String(n).padStart(2,'0');}
 function toKey(d){return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;}
+/* 주말(토·일)과 공휴일은 실제 근무일이 아니므로 캘린더에 일정을 표시하지 않는다.
+   (일정 등록 자체는 그대로 가능 — 화면에 노출만 되지 않도록 함) */
+function isWorkDay(key){
+  const [y,m,d] = key.split('-').map(Number);
+  const dow = new Date(y, m-1, d).getDay();
+  return dow !== 0 && dow !== 6 && !HOLIDAYS[key];
+}
 
 function renderCalendar(){
   const y = current.getFullYear(), m = current.getMonth();
@@ -938,10 +945,10 @@ function renderCalendar(){
       cell.appendChild(hl);
     }
 
-    const dayEvents = events
+    const dayEvents = isWorkDay(key) ? events
       .filter(ev => ev.teamId && !activeFilters.has(ev.teamId))
       .filter(ev => key >= ev.start && key <= (ev.end || ev.start))
-      .sort((a,b)=> a.start.localeCompare(b.start));
+      .sort((a,b)=> a.start.localeCompare(b.start)) : [];
 
     /* 숨김 없이 하루의 모든 일정을 그대로 표시. 진행 상태 아이콘·담당 팀 점은
        색상 박스 밖(evt-icons)에 두어 박스 배경색과 겹쳐 안 보이는 문제를 방지. */
@@ -1327,10 +1334,10 @@ function formatDayTitle(key){
 function openDayListModal(key){
   document.getElementById('dayListTitle').textContent = formatDayTitle(key);
   const body = document.getElementById('dayListBody');
-  const dayEvents = events
+  const dayEvents = isWorkDay(key) ? events
     .filter(ev => ev.teamId && !activeFilters.has(ev.teamId))
     .filter(ev => key >= ev.start && key <= (ev.end || ev.start))
-    .sort((a,b)=> a.start.localeCompare(b.start));
+    .sort((a,b)=> a.start.localeCompare(b.start)) : [];
   body.innerHTML = '';
   if(dayEvents.length === 0){
     body.innerHTML = '<div class="pending-empty">등록된 일정이 없어요</div>';
