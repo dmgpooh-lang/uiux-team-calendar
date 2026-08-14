@@ -1483,15 +1483,18 @@ const dayListOverlay = document.getElementById('dayListOverlay');
 function formatDayTitle(key){
   const [y,m,d] = key.split('-').map(Number);
   const wd = ['일','월','화','수','목','금','토'][new Date(y, m-1, d).getDay()];
-  return `${y}. ${m}. ${d}. (${wd})`;
+  const holidayName = HOLIDAYS[key];
+  return `${y}. ${m}. ${d}. (${wd})` + (holidayName ? ` · ${holidayName}` : '');
 }
 function openDayListModal(key){
   document.getElementById('dayListTitle').textContent = formatDayTitle(key);
   const body = document.getElementById('dayListBody');
-  const dayEvents = isWorkDay(key) ? events
+  /* 주말·공휴일은 캘린더 격자에는 칩을 표시하지 않지만(renderCalendar의 isWorkDay 체크),
+     날짜를 눌러 여는 이 상세 목록에서는 등록된 일정을 그대로 보여줘야 실수로 등록/수정/삭제할 수 있다. */
+  const dayEvents = events
     .filter(ev => ev.teamId && !activeFilters.has(ev.teamId))
     .filter(ev => key >= ev.start && key <= (ev.end || ev.start))
-    .sort((a,b)=> a.start.localeCompare(b.start)) : [];
+    .sort((a,b)=> a.start.localeCompare(b.start));
   body.innerHTML = '';
   if(dayEvents.length === 0){
     body.innerHTML = '<div class="pending-empty">등록된 일정이 없어요</div>';
