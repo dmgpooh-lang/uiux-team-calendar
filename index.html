@@ -354,7 +354,7 @@
     100%{transform:translateX(0);}
   }
   .danger-icon{
-    font-size:42px;line-height:1;margin-bottom:8px;
+    font-size:42px;line-height:1;margin-bottom:18px;
     filter:drop-shadow(0 0 10px rgba(255,30,60,.65));
     animation:dangerPulse 1s ease-in-out infinite;
   }
@@ -1400,7 +1400,7 @@ document.getElementById('saveEventBtn').addEventListener('click', async ()=>{
 
 document.getElementById('deleteEventBtn').addEventListener('click', async ()=>{
   if(!editingEventId) return;
-  if(await dangerConfirm('휴지통으로 이동되며, 관리자 화면 > 휴지통에서 복구할 수 있어요.', {title:'이 일정을 삭제할까요?'})){
+  if(await dangerConfirm('', {title:'이 일정을 삭제할까요?'})){
     const deletedEv = events.find(e=>e.id===editingEventId);
     await updateDoc(doc(db,"events", editingEventId), { deleted: true, deletedAt: serverTimestamp() });
     /* 일정을 지운 뒤, 남은 형제 일정들의 상태로 프로젝트 진행상황도 다시 맞춰준다. */
@@ -1435,6 +1435,7 @@ function dangerConfirm(message, opts){
   return new Promise((resolve)=>{
     dangerConfirmTitleEl.textContent = opts.title || '정말 삭제할까요?';
     dangerConfirmMessageEl.textContent = message || '';
+    dangerConfirmMessageEl.style.display = message ? '' : 'none';
     dangerConfirmBtn.textContent = opts.confirmLabel || '삭제';
     dangerConfirmResolve = resolve;
     dangerConfirmOverlay.classList.add('show');
@@ -1936,7 +1937,7 @@ document.getElementById('saveProjectBtn').addEventListener('click', async ()=>{
 
 document.getElementById('deleteProjectBtn').addEventListener('click', async ()=>{
   if(!editingProjectId) return;
-  if(await dangerConfirm('휴지통으로 이동되며, 관리자 화면 > 휴지통에서 복구할 수 있어요.', {title:'이 프로젝트를 삭제할까요?'})){
+  if(await dangerConfirm('', {title:'이 프로젝트를 삭제할까요?'})){
     await updateDoc(doc(db,"projects", editingProjectId), { deleted: true, deletedAt: serverTimestamp() });
     closeProjectModal();
   }
