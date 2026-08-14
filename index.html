@@ -840,24 +840,34 @@ onSnapshot(projectsCol, (snap)=>{
   autoSyncProjectsFromEvents();
 });
 
-/* 이 동기화 기능이 생기기 전에 이미 캘린더에 등록돼 있던 일정들은 프로젝트 진행상황에
-   자동으로 반영되지 않았을 수 있으므로, 접속 시 한 번 비어있는 프로젝트를 보완해준다.
-   (새 일정 저장 시에는 saveEventBtn 핸들러에서 바로바로 동기화됨) */
+/* 접속 시 한 번, 캘린더에 등록된 일정 기준으로 프로젝트 진행상황을 통째로 맞춰준다.
+   - 프로젝트가 아직 없으면 새로 만들고, 있으면 진행 상태를 그 프로젝트의 모든 일정 상태로부터 다시 계산해 맞춘다.
+   - 일정이 하나도 없는 프로젝트(수동으로 추가한 장기 유지보수 항목 등)는 건드리지 않는다.
+   (새 일정을 저장/삭제할 때는 saveEventBtn·deleteEventBtn 핸들러에서 바로바로 동기화됨) */
 function autoSyncProjectsFromEvents(){
   if(autoSyncDone || !eventsLoaded || !projectsLoaded) return;
   autoSyncDone = true;
-  const seen = new Set();
+  const groups = {};
   events.forEach(ev=>{
     const name = (ev.projectName || '').trim();
     if(!name) return;
     const key = name.toLowerCase();
-    if(seen.has(key)) return;
-    seen.add(key);
-    if(findProjectByName(name)) return;
-    addDoc(projectsCol, {
-      name, client: ev.client || '', manager: ev.manager || '',
-      status: '예정', memo: '', color: null, createdAt: serverTimestamp()
-    }).catch(()=>{});
+    if(!groups[key]) groups[key] = { name, client: ev.client || '', manager: ev.manager || '', statuses: [] };
+    groups[key].statuses.push(ev.status);
+  });
+  Object.values(groups).forEach(g=>{
+    const derivedStatus = deriveProjectStatus(g.statuses);
+    const matched = findProjectByName(g.name);
+    if(matched){
+      if(matched.status !== derivedStatus){
+        updateDoc(doc(db,"projects", matched.id), { status: derivedStatus }).catch(()=>{});
+      }
+    } else {
+      addDoc(projectsCol, {
+        name: g.name, client: g.client, manager: g.manager,
+        status: derivedStatus, memo: '', color: null, createdAt: serverTimestamp()
+      }).catch(()=>{});
+    }
   });
 }
 
@@ -1276,15 +1286,21 @@ document.getElementById('saveEventBtn').addEventListener('click', async ()=>{
   }
 
   /* 캘린더에 등록/수정한 프로젝트명이 "프로젝트 진행상황"에도 반영되도록 동기화.
-     이미 등록된 프로젝트면 색상만 최신화하고, 처음 보는 프로젝트명이면 새로 만들어준다. */
+     색상뿐 아니라, 같은 프로젝트명을 쓰는 모든 일정의 진행 상태를 종합해 프로젝트 상태도 함께 맞춘다. */
   const matchedProject = findProjectByName(projectName);
+  const siblingStatuses = events
+    .filter(e => e.id !== editingEventId && (e.projectName||'').trim().toLowerCase() === projectName.toLowerCase())
+    .map(e => e.status);
+  siblingStatuses.push(selectedStatus);
+  const derivedProjectStatus = deriveProjectStatus(siblingStatuses);
   if(matchedProject){
-    if((matchedProject.color || null) !== selectedEventColor){
-      await updateDoc(doc(db,"projects", matchedProject.id), { color: selectedEventColor });
-    }
+    const patch = {};
+    if((matchedProject.color || null) !== selectedEventColor) patch.color = selectedEventColor;
+    if(matchedProject.status !== derivedProjectStatus) patch.status = derivedProjectStatus;
+    if(Object.keys(patch).length) await updateDoc(doc(db,"projects", matchedProject.id), patch);
   } else {
     await addDoc(projectsCol, {
-      name: projectName, client, manager, status: '예정', memo: '',
+      name: projectName, client, manager, status: derivedProjectStatus, memo: '',
       color: selectedEventColor, createdAt: serverTimestamp()
     });
   }
@@ -1295,7 +1311,21 @@ document.getElementById('saveEventBtn').addEventListener('click', async ()=>{
 document.getElementById('deleteEventBtn').addEventListener('click', async ()=>{
   if(!editingEventId) return;
   if(confirm('이 일정을 삭제할까요?')){
+    const deletedEv = events.find(e=>e.id===editingEventId);
     await deleteDoc(doc(db,"events", editingEventId));
+    /* 일정을 지운 뒤, 남은 형제 일정들의 상태로 프로젝트 진행상황도 다시 맞춰준다. */
+    if(deletedEv && deletedEv.projectName){
+      const matchedProject = findProjectByName(deletedEv.projectName);
+      if(matchedProject){
+        const siblingStatuses = events
+          .filter(e => e.id !== editingEventId && (e.projectName||'').trim().toLowerCase() === deletedEv.projectName.trim().toLowerCase())
+          .map(e => e.status);
+        const derivedProjectStatus = deriveProjectStatus(siblingStatuses);
+        if(matchedProject.status !== derivedProjectStatus){
+          await updateDoc(doc(db,"projects", matchedProject.id), { status: derivedProjectStatus });
+        }
+      }
+    }
     closeEventModal();
   }
 });
@@ -1480,6 +1510,15 @@ function findProjectByName(name){
   const key = name.trim().toLowerCase();
   if(!key) return null;
   return projects.find(p => p.name && p.name.trim().toLowerCase() === key) || null;
+}
+/* 일정(계획/진행중/완료)들의 상태로부터 프로젝트 진행상황(예정/진행중/완료)을 유도한다.
+   하나라도 진행중이면 진행중, 전부 완료면 완료, 완료와 계획이 섞여 있으면(일부만 끝남) 진행중,
+   전부 계획이면 아직 시작 전이므로 예정. */
+function deriveProjectStatus(eventStatuses){
+  if(eventStatuses.includes('진행중')) return '진행중';
+  if(eventStatuses.length && eventStatuses.every(s=>s==='완료')) return '완료';
+  if(eventStatuses.some(s=>s==='완료')) return '진행중';
+  return '예정';
 }
 
 /* 입력창 밖에서 Backspace/Delete를 누르면 일부 브라우저가 "뒤로 가기"로 처리해
