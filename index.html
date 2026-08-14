@@ -498,7 +498,6 @@
         <h2>프로젝트 진행상황</h2>
         <div class="desc">진행중·예정·완료 상태를 한눈에 볼 수 있도록 모아뒀어요. 단발성 일정이 아닌, 꾸준히 진행되는 유지보수·장기 프로젝트를 관리해요.</div>
       </div>
-      <button class="btn" id="addProjectBtn">+ 프로젝트 추가</button>
     </div>
     <div class="projects-toolbar">
       <input type="text" id="projectSearch" placeholder="🔍 프로젝트명, 발주처, 담당자로 검색">
@@ -1256,6 +1255,7 @@ function requestCloseEventModal(){
 }
 
 document.getElementById('addEventBtn').addEventListener('click', ()=>{
+  if(currentView === 'projects'){ openProjectModal(null); return; }
   const now = new Date();
   const isCurrentMonth = current.getFullYear()===now.getFullYear() && current.getMonth()===now.getMonth();
   openEventModal(null, toKey(isCurrentMonth ? now : current));
@@ -1532,15 +1532,19 @@ document.addEventListener('keydown', (e)=>{
   if(!isEditable) e.preventDefault();
 });
 
-/* ---------- View tabs ---------- */
+/* ---------- View tabs ----------
+   헤더의 "+ 추가" 버튼은 어느 탭에 있든 항상 같은 자리에 표시하고,
+   현재 탭에 맞춰 문구와 동작만 바꿔준다(모바일에서 탭 전환 시 상단 UI가
+   덜컹거리며 위치가 바뀌는 문제를 막기 위함). */
+let currentView = 'calendar';
 document.querySelectorAll('.tab-btn').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
-    const view = btn.dataset.view;
-    document.getElementById('calendarView').style.display = view==='calendar' ? '' : 'none';
-    document.getElementById('projectsView').style.display = view==='projects' ? '' : 'none';
-    document.getElementById('addEventBtn').style.display = view==='calendar' ? '' : 'none';
+    currentView = btn.dataset.view;
+    document.getElementById('calendarView').style.display = currentView==='calendar' ? '' : 'none';
+    document.getElementById('projectsView').style.display = currentView==='projects' ? '' : 'none';
+    document.getElementById('addEventBtn').textContent = currentView==='calendar' ? '+ 일정 추가' : '+ 프로젝트 추가';
   });
 });
 
@@ -1685,7 +1689,6 @@ function requestCloseProjectModal(){
   closeProjectModal();
 }
 
-document.getElementById('addProjectBtn').addEventListener('click', ()=> openProjectModal(null));
 document.getElementById('cancelProjectBtn').addEventListener('click', requestCloseProjectModal);
 /* 실수로 바깥 영역을 클릭했을 때 작성 중인 내용이 사라지지 않도록, 배경 클릭으로는 닫히지 않게 함 */
 
