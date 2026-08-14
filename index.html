@@ -266,6 +266,15 @@
   .trash-section-title{font-size:12px;font-weight:700;color:var(--muted);margin:14px 0 6px;}
   .trash-section-title:first-child{margin-top:0;}
 
+  .visitlog-item{
+    background:#fbfbfd;border:1px solid var(--border);border-radius:10px;
+    padding:9px 12px;margin-bottom:6px;
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+  }
+  .visitlog-ip{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;font-weight:700;}
+  .visitlog-meta{font-size:11px;color:var(--muted);margin-top:3px;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .visitlog-time{font-size:11.5px;color:var(--muted);flex:none;text-align:right;}
+
   /* view tabs */
   .view-tabs{display:flex;gap:8px;margin-bottom:16px;}
   .tab-btn{
@@ -663,6 +672,7 @@
       <div style="display:flex;gap:8px;">
         <button class="btn ghost" id="adminLogoutBtn">관리자 모드 종료</button>
         <button class="btn ghost" id="openTrashBtn">🗑 휴지통</button>
+        <button class="btn ghost" id="openVisitLogBtn">🌐 접속기록</button>
       </div>
       <div class="right">
         <button class="btn" id="closePendingBtn">닫기</button>
@@ -681,6 +691,21 @@
       <div></div>
       <div class="right">
         <button class="btn" id="closeTrashBtn">닫기</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Visit log (접속 IP 기록) modal: 관리자만 볼 수 있는 접속 내역 -->
+<div class="overlay" id="visitLogOverlay">
+  <div class="modal" style="max-width:460px;">
+    <h2>🌐 접속 기록</h2>
+    <div style="font-size:11.5px;color:var(--muted);margin:-6px 0 10px;">최근 접속 IP 목록이에요. (최근 200건 · 관리자만 볼 수 있어요)</div>
+    <div id="visitLogListBody"></div>
+    <div class="modal-actions">
+      <button class="btn danger" id="clearVisitLogBtn">전체 삭제</button>
+      <div class="right">
+        <button class="btn" id="closeVisitLogBtn">닫기</button>
       </div>
     </div>
   </div>
@@ -788,7 +813,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
   getFirestore, collection, doc, addDoc, updateDoc, deleteDoc,
-  onSnapshot, query, orderBy, setDoc, getDocs, serverTimestamp
+  onSnapshot, query, orderBy, limit, setDoc, getDocs, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 /* ====== Firebase 설정 (자동 생성됨) ====== */
@@ -803,6 +828,25 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+
+/* ---------- 접속 기록 (관리자 전용 열람) ----------
+   탭(세션)당 1회, 접속자의 공인 IP를 외부 무료 API(ipify)로 조회해 Firestore에 기록.
+   관리자만 "🌐 접속기록" 버튼으로 열람 가능. IP 조회 실패해도 앱 동작에는 영향 없음. */
+const visitLogsCol = collection(db, "visitLogs");
+async function logVisit(){
+  try{
+    if(sessionStorage.getItem('uiuxVisitLogged')) return;
+    sessionStorage.setItem('uiuxVisitLogged', '1');
+    const res = await fetch('https://api.ipify.org?format=json');
+    const data = await res.json();
+    await addDoc(visitLogsCol, {
+      ip: (data && data.ip) || 'unknown',
+      userAgent: navigator.userAgent,
+      ts: serverTimestamp()
+    });
+  }catch(e){ /* IP 조회 실패해도 조용히 무시 */ }
+}
+logVisit();
 
 const statusDot = document.getElementById('statusDot');
 const statusText = document.getElementById('statusText');
@@ -1649,6 +1693,43 @@ function renderTrashList(){
 function openTrashOverlay(){ renderTrashList(); trashOverlay.classList.add('show'); }
 function closeTrashOverlay(){ trashOverlay.classList.remove('show'); }
 
+/* ---------- 접속 기록 목록 (관리자 전용) ---------- */
+const visitLogOverlay = document.getElementById('visitLogOverlay');
+function formatVisitTime(ts){
+  if(!ts || !ts.toDate) return '';
+  const d = ts.toDate();
+  return `${d.getFullYear()}.${pad(d.getMonth()+1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+async function renderVisitLogList(){
+  const body = document.getElementById('visitLogListBody');
+  body.innerHTML = '<div class="pending-empty">불러오는 중...</div>';
+  try{
+    const snap = await getDocs(query(visitLogsCol, orderBy('ts','desc'), limit(200)));
+    if(snap.empty){
+      body.innerHTML = '<div class="pending-empty">접속 기록이 없어요</div>';
+      return;
+    }
+    body.innerHTML = '';
+    snap.forEach(d=>{
+      const item = d.data();
+      const row = document.createElement('div');
+      row.className = 'visitlog-item';
+      row.innerHTML = `
+        <div style="min-width:0;">
+          <div class="visitlog-ip">${escapeHtml(item.ip || 'unknown')}</div>
+          <div class="visitlog-meta" title="${escapeHtml(item.userAgent || '')}">${escapeHtml(item.userAgent || '')}</div>
+        </div>
+        <div class="visitlog-time">${escapeHtml(formatVisitTime(item.ts))}</div>
+      `;
+      body.appendChild(row);
+    });
+  }catch(e){
+    body.innerHTML = '<div class="pending-empty">접속 기록을 불러오지 못했어요</div>';
+  }
+}
+function openVisitLogOverlay(){ renderVisitLogList(); visitLogOverlay.classList.add('show'); }
+function closeVisitLogOverlay(){ visitLogOverlay.classList.remove('show'); }
+
 /* ---------- 승인 대기 브라우저 알림 (관리자 전용) ----------
    관리자가 로그인한 브라우저에서 새로 등록된 "승인 대기" 일정이 있으면
    데스크탑 알림으로 알려준다. 이 앱 화면(탭)이 열려 있어야 동작하고,
@@ -1719,6 +1800,20 @@ document.getElementById('openTrashBtn').addEventListener('click', ()=>{
 });
 document.getElementById('closeTrashBtn').addEventListener('click', closeTrashOverlay);
 trashOverlay.addEventListener('click', (e)=>{ if(e.target===trashOverlay) closeTrashOverlay(); });
+
+document.getElementById('openVisitLogBtn').addEventListener('click', ()=>{
+  closePendingOverlay();
+  openVisitLogOverlay();
+});
+document.getElementById('closeVisitLogBtn').addEventListener('click', closeVisitLogOverlay);
+visitLogOverlay.addEventListener('click', (e)=>{ if(e.target===visitLogOverlay) closeVisitLogOverlay(); });
+document.getElementById('clearVisitLogBtn').addEventListener('click', async ()=>{
+  if(await dangerConfirm('이 작업은 절대 되돌릴 수 없습니다. 접속 기록을 전체 삭제할까요?', {title:'⚠️ 접속 기록 전체 삭제', confirmLabel:'전체삭제'})){
+    const snap = await getDocs(query(visitLogsCol, orderBy('ts','desc'), limit(500)));
+    await Promise.all(snap.docs.map(d => deleteDoc(doc(db, "visitLogs", d.id))));
+    renderVisitLogList();
+  }
+});
 
 /* ---------- First-visit notice popup ---------- */
 const noticeOverlay = document.getElementById('noticeOverlay');
