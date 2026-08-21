@@ -938,6 +938,15 @@ const teamsCol = collection(db, "teams");
 const eventsCol = collection(db, "events");
 const projectsCol = collection(db, "projects");
 
+/* 프로젝트명(공백/대소문자 무시) 기준으로 고정된 문서ID를 만들어, 여러 곳(자동 동기화·일정 저장·휴지통 복구)에서
+   "같은 이름 = 같은 프로젝트"를 문서ID 레벨에서 강제한다. 동시에 여러 곳에서 같은 이름의 프로젝트를 만들려고 해도
+   (예: 로컬 캐시가 아직 최신이 아닌 순간에 두 사람이 동시에 저장) 같은 문서로 합쳐지고, 중복 카드가 생기지 않는다. */
+async function projectIdFromName(name){
+  const key = (name || '').trim().toLowerCase();
+  const hash = await sha256Hex(key);
+  return 'p_' + hash.slice(0, 32);
+}
+
 /* ---------- Seed default teams once ---------- */
 async function ensureSeedTeams(){
   const snap = await getDocs(teamsCol);
@@ -1008,10 +1017,12 @@ function autoSyncProjectsFromEvents(){
         updateDoc(doc(db,"projects", matched.id), { status: derivedStatus }).catch(()=>{});
       }
     } else {
-      addDoc(projectsCol, {
-        name: g.name, client: g.client, manager: g.manager,
-        status: derivedStatus, memo: '', color: null, createdAt: serverTimestamp()
-      }).catch(()=>{});
+      projectIdFromName(g.name).then(pid=>{
+        setDoc(doc(db,"projects", pid), {
+          name: g.name, client: g.client, manager: g.manager,
+          status: derivedStatus, memo: '', color: null, createdAt: serverTimestamp()
+        }, { merge: true }).catch(()=>{});
+      });
     }
   });
 }
@@ -1445,10 +1456,10 @@ document.getElementById('saveEventBtn').addEventListener('click', async ()=>{
     if(matchedProject.status !== derivedProjectStatus) patch.status = derivedProjectStatus;
     if(Object.keys(patch).length) await updateDoc(doc(db,"projects", matchedProject.id), patch);
   } else {
-    await addDoc(projectsCol, {
+    await setDoc(doc(db,"projects", await projectIdFromName(projectName)), {
       name: projectName, client, manager, status: derivedProjectStatus, memo: '',
       color: selectedEventColor, createdAt: serverTimestamp()
-    });
+    }, { merge: true });
   }
 
   closeEventModal();
@@ -1660,10 +1671,10 @@ function buildTrashRow(kind, item){
           await updateDoc(doc(db,"projects", matchedProject.id), { status: derivedProjectStatus });
         }
       } else {
-        await addDoc(projectsCol, {
+        await setDoc(doc(db,"projects", await projectIdFromName(item.projectName)), {
           name: item.projectName, client: item.client || '', manager: item.manager || '',
           status: derivedProjectStatus, memo: '', color: item.color || null, createdAt: serverTimestamp()
-        });
+        }, { merge: true });
       }
     }
   });
@@ -2097,8 +2108,14 @@ document.getElementById('saveProjectBtn').addEventListener('click', async ()=>{
   if(editingProjectId){
     await updateDoc(doc(db,"projects", editingProjectId), data);
   } else {
+    /* 같은 이름의 프로젝트가 이미 있으면(캘린더에서 자동 생성된 것 포함) 중복 카드를 만들지 않고 그 프로젝트에 합쳐 저장한다. */
+    const existing = findProjectByName(name);
     data.createdAt = serverTimestamp();
-    await addDoc(projectsCol, data);
+    if(existing){
+      await updateDoc(doc(db,"projects", existing.id), data);
+    } else {
+      await setDoc(doc(db,"projects", await projectIdFromName(name)), data, { merge: true });
+    }
   }
   closeProjectModal();
 });
