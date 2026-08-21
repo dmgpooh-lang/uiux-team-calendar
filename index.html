@@ -306,14 +306,16 @@
   .project-card .p-name{font-weight:700;font-size:13.5px;margin-bottom:3px;}
   .project-card .p-meta{font-size:11.5px;color:var(--muted);line-height:1.5;}
   .project-card .p-period{font-size:11px;color:var(--muted);margin-top:4px;}
-  .project-card .p-team{display:inline-flex;align-items:center;gap:4px;font-size:11px;margin-top:5px;color:var(--muted);}
-  .project-card .p-team .dot{width:7px;height:7px;border-radius:50%;flex:none;}
   .project-card .p-memo{
     font-size:11px;color:var(--muted);margin-top:6px;
     overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
     line-height:1.4;
   }
-  .project-card .p-related{font-size:11px;color:var(--accent);margin-top:6px;font-weight:600;}
+  .project-card .p-related{margin-top:6px;}
+  .project-card .p-team{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);margin-top:3px;}
+  .project-card .p-team:first-child{margin-top:0;}
+  .project-card .p-team .dot{width:7px;height:7px;border-radius:50%;flex:none;}
+  .project-card .p-team .p-team-name{font-weight:700;color:var(--text);flex:none;}
   .project-card .p-ts{font-size:10px;color:#b6bac8;margin-top:6px;}
   .project-empty{color:var(--muted);font-size:12px;text-align:center;padding:20px 0;}
   @media (max-width:900px){
@@ -2019,12 +2021,44 @@ function renderProjects(){
         memoEl.textContent = '📝 ' + p.memo;
         card.appendChild(memoEl);
       }
-      const relatedCount = relatedEvents.length;
-      if(relatedCount > 0){
-        const relEl = document.createElement('div');
-        relEl.className = 'p-related';
-        relEl.textContent = `📅 관련 일정 ${relatedCount}건`;
-        card.appendChild(relEl);
+      if(relatedEvents.length > 0){
+        /* 관련 일정을 담당 팀별로 묶어서, 팀마다 기간과 건수를 따로 보여준다 (예: 디자인 · 8/10~9/30 · 2건). */
+        const byTeam = {};
+        relatedEvents.forEach(ev=>{
+          const tid = ev.teamId || '_none';
+          if(!byTeam[tid]) byTeam[tid] = [];
+          byTeam[tid].push(ev);
+        });
+        const relWrap = document.createElement('div');
+        relWrap.className = 'p-related';
+        Object.keys(byTeam)
+          .map(tid => teams.find(t=>t.id===tid))
+          .filter(Boolean)
+          .sort((a,b)=> a.name.localeCompare(b.name))
+          .forEach(team=>{
+            const evs = byTeam[team.id];
+            const starts = evs.map(e=>e.start).filter(Boolean).sort();
+            const ends = evs.map(e=>e.end || e.start).filter(Boolean).sort();
+            const s = starts[0], e = ends[ends.length-1];
+            const range = s ? (e && e !== s ? `${s} ~ ${e}` : s) : '';
+            const row = document.createElement('div');
+            row.className = 'p-team';
+            row.innerHTML = `<span class="dot" style="background:${team.color}"></span><span class="p-team-name">${escapeHtml(team.name)}</span><span>${escapeHtml(range)}${range ? ' · ' : ''}${evs.length}건</span>`;
+            relWrap.appendChild(row);
+          });
+        /* 팀이 삭제되는 등, 매칭되는 팀이 없는 일정은 "미지정"으로 한데 묶어 보여준다. */
+        if(byTeam['_none']){
+          const evs = byTeam['_none'];
+          const starts = evs.map(e=>e.start).filter(Boolean).sort();
+          const ends = evs.map(e=>e.end || e.start).filter(Boolean).sort();
+          const s = starts[0], e = ends[ends.length-1];
+          const range = s ? (e && e !== s ? `${s} ~ ${e}` : s) : '';
+          const row = document.createElement('div');
+          row.className = 'p-team';
+          row.innerHTML = `<span class="dot" style="background:#999"></span><span class="p-team-name">미지정</span><span>${escapeHtml(range)}${range ? ' · ' : ''}${evs.length}건</span>`;
+          relWrap.appendChild(row);
+        }
+        card.appendChild(relWrap);
       }
       const tsLabel = relativeTime(p.updatedAt || p.createdAt);
       if(tsLabel){
