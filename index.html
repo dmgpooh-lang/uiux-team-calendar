@@ -305,6 +305,7 @@
   .project-card:hover{background:#f3f5fb;}
   .project-card .p-name{font-weight:700;font-size:13.5px;margin-bottom:3px;}
   .project-card .p-meta{font-size:11.5px;color:var(--muted);line-height:1.5;}
+  .project-card .p-period{font-size:11px;color:var(--muted);margin-top:4px;}
   .project-card .p-team{display:inline-flex;align-items:center;gap:4px;font-size:11px;margin-top:5px;color:var(--muted);}
   .project-card .p-team .dot{width:7px;height:7px;border-radius:50%;flex:none;}
   .project-card .p-memo{
@@ -785,6 +786,16 @@
       <div class="field">
         <label>담당자 (선택)</label>
         <input type="text" id="pManager" name="manager" placeholder="예: 홍길동" autocomplete="on" data-lpignore="true" data-1p-ignore>
+      </div>
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label>시작일 (선택)</label>
+        <input type="date" id="pStart">
+      </div>
+      <div class="field">
+        <label>종료일 (선택)</label>
+        <input type="date" id="pEnd">
       </div>
     </div>
     <div class="field">
@@ -1976,6 +1987,12 @@ function renderProjects(){
         metaEl.textContent = metaParts.join(' · ');
         card.appendChild(metaEl);
       }
+      if(p.start){
+        const periodEl = document.createElement('div');
+        periodEl.className = 'p-period';
+        periodEl.textContent = '📅 ' + (p.end && p.end !== p.start ? `${p.start} ~ ${p.end}` : p.start);
+        card.appendChild(periodEl);
+      }
       if(p.memo){
         card.title = p.memo;
         const memoEl = document.createElement('div');
@@ -2024,6 +2041,8 @@ function captureProjectFormSnapshot(){
     n: document.getElementById('pName').value,
     c: document.getElementById('pClient').value,
     m: document.getElementById('pManager').value,
+    s: document.getElementById('pStart').value,
+    e: document.getElementById('pEnd').value,
     memo: document.getElementById('pMemo').value,
     status: selectedProjectStatus
   });
@@ -2035,6 +2054,8 @@ function openProjectModal(p){
   document.getElementById('pName').value = p ? p.name : '';
   document.getElementById('pClient').value = p ? (p.client || '') : '';
   document.getElementById('pManager').value = p ? (p.manager || '') : '';
+  document.getElementById('pStart').value = p ? (p.start || '') : '';
+  document.getElementById('pEnd').value = p ? (p.end || '') : '';
   document.getElementById('pMemo').value = p ? (p.memo || '') : '';
   setSelectedProjectStatus(p && p.status ? p.status : '예정');
   document.getElementById('deleteProjectBtn').style.display = p ? 'inline-block' : 'none';
@@ -2057,10 +2078,14 @@ document.getElementById('saveProjectBtn').addEventListener('click', async ()=>{
   const name = document.getElementById('pName').value.trim();
   const client = document.getElementById('pClient').value.trim();
   const manager = document.getElementById('pManager').value.trim();
+  let start = document.getElementById('pStart').value;
+  let end = document.getElementById('pEnd').value;
   const memo = document.getElementById('pMemo').value.trim();
   if(!name){ alert('프로젝트명을 입력해주세요.'); return; }
+  if(!start) end = '';
+  if(start && (!end || end < start)) end = start;
 
-  const data = { name, client, manager, status: selectedProjectStatus, memo, updatedAt: serverTimestamp() };
+  const data = { name, client, manager, start, end, status: selectedProjectStatus, memo, updatedAt: serverTimestamp() };
   if(editingProjectId){
     await updateDoc(doc(db,"projects", editingProjectId), data);
   } else {
