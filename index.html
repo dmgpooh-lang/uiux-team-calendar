@@ -1987,10 +1987,18 @@ function renderProjects(){
         metaEl.textContent = metaParts.join(' · ');
         card.appendChild(metaEl);
       }
-      if(p.start){
+      const relatedEvents = p.name ? events.filter(ev => ev.projectName && ev.projectName.trim().toLowerCase() === p.name.trim().toLowerCase()) : [];
+      /* 프로젝트에 기간을 직접 입력하지 않았다면, 연결된 일정들의 시작~종료일 범위로 대신 보여준다. */
+      let periodStart = p.start, periodEnd = p.end;
+      if(!periodStart && relatedEvents.length){
+        const starts = relatedEvents.map(ev=>ev.start).filter(Boolean).sort();
+        const ends = relatedEvents.map(ev=>ev.end || ev.start).filter(Boolean).sort();
+        if(starts.length){ periodStart = starts[0]; periodEnd = ends[ends.length-1]; }
+      }
+      if(periodStart){
         const periodEl = document.createElement('div');
         periodEl.className = 'p-period';
-        periodEl.textContent = '📅 ' + (p.end && p.end !== p.start ? `${p.start} ~ ${p.end}` : p.start);
+        periodEl.textContent = '📅 ' + (periodEnd && periodEnd !== periodStart ? `${periodStart} ~ ${periodEnd}` : periodStart);
         card.appendChild(periodEl);
       }
       if(p.memo){
@@ -2000,7 +2008,7 @@ function renderProjects(){
         memoEl.textContent = '📝 ' + p.memo;
         card.appendChild(memoEl);
       }
-      const relatedCount = p.name ? events.filter(ev => ev.projectName && ev.projectName.trim().toLowerCase() === p.name.trim().toLowerCase()).length : 0;
+      const relatedCount = relatedEvents.length;
       if(relatedCount > 0){
         const relEl = document.createElement('div');
         relEl.className = 'p-related';
