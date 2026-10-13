@@ -230,6 +230,15 @@
   .status-btn[data-status="진행중"].sel{background:#f59e0b;}
   .status-btn[data-status="완료"].sel{background:#22c55e;}
 
+  .team-picker{display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;}
+  .team-pick-btn{
+    padding:8px 12px;border-radius:9px;border:1px solid var(--border);
+    background:#fbfbfd;font-size:12.5px;font-weight:600;cursor:pointer;color:var(--muted);
+    display:flex;align-items:center;gap:6px;
+  }
+  .team-pick-btn .dot{width:8px;height:8px;border-radius:50%;flex:none;}
+  .team-pick-btn.sel{border-color:transparent;color:#fff;}
+
   .approval-row{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:14px;}
   .appr-badge{font-size:11.5px;font-weight:700;padding:5px 10px;border-radius:20px;}
   .appr-badge-approved{background:#e7f9ef;color:#1a9d5c;}
@@ -510,6 +519,7 @@
     .cell{min-height:64px;}
     .row2{flex-direction:column;gap:13px;}
     .status-btn{font-size:11px;padding:7px 4px;}
+    .team-pick-btn{font-size:11px;padding:7px 9px;}
     .modal h2{font-size:15px;}
   }
 </style>
@@ -601,8 +611,8 @@
       </div>
     </div>
     <div class="field">
-      <label>담당 팀</label>
-      <select id="fTeam"></select>
+      <label>담당 팀 (복수 선택 가능)</label>
+      <div class="team-picker" id="teamPicker"></div>
     </div>
     <div class="field">
       <label>캘린더 색상 (선택)</label>
@@ -925,11 +935,18 @@ const PROJECT_COLS = [
 ];
 
 let teams = [];      // {id, name, color}
-let events = [];     // {id, title, start, end, teamId, memo, projectName, client, manager, status, approval, rejectReason}
+let events = [];     // {id, title, start, end, teamIds(배열, 신규)/teamId(구버전 호환), memo, projectName, client, manager, status, approval, rejectReason}
 let projects = [];   // {id, name, client, manager, teamId, status, memo}
 let deletedEvents = [];   // 휴지통에 있는(삭제된) 일정들
 let deletedProjects = []; // 휴지통에 있는(삭제된) 프로젝트들
 let activeFilters = new Set(); // teamIds hidden
+/* 일정은 담당 팀을 1개 이상 가질 수 있다(예: 디자인+퍼블리싱 동시 진행).
+   기존 데이터는 단일 teamId만 있으므로, 항상 이 헬퍼로 배열 형태로 읽는다. */
+function getEventTeamIds(ev){
+  if(ev && Array.isArray(ev.teamIds) && ev.teamIds.length) return ev.teamIds;
+  if(ev && ev.teamId) return [ev.teamId];
+  return [];
+}
 let current = new Date();
 current.setDate(1);
 let editingEventId = null;
@@ -962,7 +979,7 @@ async function ensureSeedTeams(){
 onSnapshot(query(teamsCol, orderBy("order","asc")), (snap)=>{
   teams = snap.docs.map(d=>({id:d.id, ...d.data()}));
   renderMiniTeamFilter();
-  populateTeamSelect();
+  renderTeamPicker();
   renderCalendar();
   renderProjects();
   setConnected(true, "실시간 연결됨 · 팀 " + teams.length + "개");
@@ -1114,14 +1131,15 @@ function renderCalendar(){
     }
 
     const dayEvents = isWorkDay(key) ? events
-      .filter(ev => ev.teamId && !activeFilters.has(ev.teamId))
+      .filter(ev => { const tids = getEventTeamIds(ev); return tids.length && tids.some(tid => !activeFilters.has(tid)); })
       .filter(ev => key >= ev.start && key <= (ev.end || ev.start))
       .sort((a,b)=> a.start.localeCompare(b.start)) : [];
 
     /* 숨김 없이 하루의 모든 일정을 그대로 표시. 진행 상태 아이콘·담당 팀 점은
        색상 박스 밖(evt-icons)에 두어 박스 배경색과 겹쳐 안 보이는 문제를 방지. */
     dayEvents.forEach(ev=>{
-      const team = teams.find(t=>t.id===ev.teamId);
+      const evTeams = getEventTeamIds(ev).map(tid=>teams.find(t=>t.id===tid)).filter(Boolean);
+      const team = evTeams[0] || null; // 대표 팀(단일 팀 시절 로직과 호환되는 색상 등에 사용)
       const project = findProjectByName(ev.projectName);
       const statusClass = ev.status==='완료' ? ' status-done' : '';
       const approval = ev.approval || 'approved';
@@ -1132,13 +1150,13 @@ function renderCalendar(){
 
       const icons = document.createElement('div');
       icons.className = 'evt-icons';
-      if(team){
+      evTeams.forEach(t=>{
         const teamDot = document.createElement('span');
         teamDot.className = 'evt-team-dot';
-        teamDot.style.background = team.color;
-        teamDot.title = team.name;
+        teamDot.style.background = t.color;
+        teamDot.title = t.name;
         icons.appendChild(teamDot);
-      }
+      });
       if(STATUS_ICONS[ev.status]){
         const statusIco = document.createElement('span');
         statusIco.className = 'evt-status-ico';
@@ -1162,7 +1180,7 @@ function renderCalendar(){
       row.appendChild(chip);
 
       const tooltipParts = [displayName];
-      if(team) tooltipParts.push('담당팀: '+team.name);
+      if(evTeams.length) tooltipParts.push('담당팀: '+evTeams.map(t=>t.name).join(', '));
       if(ev.client) tooltipParts.push('발주처: '+ev.client);
       if(ev.manager) tooltipParts.push('담당자: '+ev.manager);
       if(ev.status) tooltipParts.push('상태: '+ev.status);
@@ -1268,13 +1286,23 @@ document.addEventListener('click', (e)=>{
 
 /* ---------- Event modal ---------- */
 const eventOverlay = document.getElementById('eventOverlay');
-function populateTeamSelect(){
-  const opts = teams.map(t=>`<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
-  ['fTeam'].forEach(id=>{
-    const sel = document.getElementById(id);
-    const prev = sel.value;
-    sel.innerHTML = opts;
-    if(prev) sel.value = prev;
+let selectedTeamIds = new Set();
+function renderTeamPicker(){
+  const wrap = document.getElementById('teamPicker');
+  if(!wrap) return;
+  wrap.innerHTML = '';
+  teams.forEach(t=>{
+    const sel = selectedTeamIds.has(t.id);
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'team-pick-btn' + (sel ? ' sel' : '');
+    if(sel) btn.style.background = t.color;
+    btn.innerHTML = `<span class="dot" style="background:${sel ? '#fff' : t.color}"></span><span>${escapeHtml(t.name)}</span>`;
+    btn.addEventListener('click', ()=>{
+      if(selectedTeamIds.has(t.id)) selectedTeamIds.delete(t.id); else selectedTeamIds.add(t.id);
+      renderTeamPicker();
+    });
+    wrap.appendChild(btn);
   });
 }
 let selectedStatus = '계획';
@@ -1379,7 +1407,7 @@ function captureEventFormSnapshot(){
     s: document.getElementById('fStart').value,
     e: document.getElementById('fEnd').value,
     memo: document.getElementById('fMemo').value,
-    team: document.getElementById('fTeam').value,
+    team: Array.from(selectedTeamIds).sort().join(','),
     status: selectedStatus,
     color: selectedEventColor
   });
@@ -1394,7 +1422,8 @@ function openEventModal(ev, dateKey){
   document.getElementById('fStart').value = ev ? ev.start : (dateKey || toKey(new Date()));
   document.getElementById('fEnd').value = ev ? (ev.end || ev.start) : (dateKey || toKey(new Date()));
   document.getElementById('fMemo').value = ev ? (ev.memo || '') : '';
-  if(ev && ev.teamId) document.getElementById('fTeam').value = ev.teamId;
+  selectedTeamIds = new Set(getEventTeamIds(ev));
+  renderTeamPicker();
   setSelectedStatus(ev && ev.status ? ev.status : '계획');
   const matchedProject = findProjectByName(ev ? (ev.projectName || '') : '');
   selectedEventColor = matchedProject ? (matchedProject.color || null) : null;
@@ -1428,15 +1457,16 @@ document.getElementById('saveEventBtn').addEventListener('click', async ()=>{
   const manager = document.getElementById('fManager').value.trim();
   let start = document.getElementById('fStart').value;
   let end = document.getElementById('fEnd').value;
-  const teamId = document.getElementById('fTeam').value;
+  const teamIds = Array.from(selectedTeamIds);
   const memo = document.getElementById('fMemo').value.trim();
   if(!projectName){ alert('프로젝트명을 입력해주세요.'); return; }
   if(!start){ alert('시작일을 선택해주세요.'); return; }
   if(!end || end < start) end = start;
-  if(!teamId){ alert('먼저 팀을 추가해주세요.'); return; }
+  if(teamIds.length === 0){ alert('담당 팀을 1개 이상 선택해주세요.'); return; }
 
   const approval = isAdmin ? 'approved' : 'pending';
-  const data = { projectName, client, manager, start, end, teamId, status: selectedStatus, memo, approval };
+  /* teamIds가 새 형식(복수 선택). teamId는 구버전 호환용으로 첫 번째 팀을 그대로 같이 저장해둔다. */
+  const data = { projectName, client, manager, start, end, teamIds, teamId: teamIds[0], status: selectedStatus, memo, approval };
   if(!isAdmin) data.rejectReason = '';
   if(editingEventId){
     await updateDoc(doc(db,"events", editingEventId), data);
@@ -1560,7 +1590,7 @@ function openDayListModal(key){
   /* 주말·공휴일은 캘린더 격자에는 칩을 표시하지 않지만(renderCalendar의 isWorkDay 체크),
      날짜를 눌러 여는 이 상세 목록에서는 등록된 일정을 그대로 보여줘야 실수로 등록/수정/삭제할 수 있다. */
   const dayEvents = events
-    .filter(ev => ev.teamId && !activeFilters.has(ev.teamId))
+    .filter(ev => { const tids = getEventTeamIds(ev); return tids.length && tids.some(tid => !activeFilters.has(tid)); })
     .filter(ev => key >= ev.start && key <= (ev.end || ev.start))
     .sort((a,b)=> a.start.localeCompare(b.start));
   body.innerHTML = '';
@@ -1568,7 +1598,9 @@ function openDayListModal(key){
     body.innerHTML = '<div class="pending-empty">등록된 일정이 없어요</div>';
   } else {
     dayEvents.forEach(ev=>{
-      const team = teams.find(t=>t.id===ev.teamId);
+      const evTeams = getEventTeamIds(ev).map(tid=>teams.find(t=>t.id===tid)).filter(Boolean);
+      const team = evTeams[0] || null;
+      const teamNames = evTeams.map(t=>t.name).join(', ');
       const project = findProjectByName(ev.projectName);
       const approval = ev.approval || 'approved';
       const approvalIcon = approval==='pending' ? '🕓 ' : approval==='rejected' ? '🚫 ' : '';
@@ -1581,7 +1613,7 @@ function openDayListModal(key){
           <span class="pending-dot" style="background:${(project && project.color) || (team ? team.color : '#999')}"></span>
           <span>${statusIcon}${escapeHtml(approvalIcon + (ev.projectName || ev.title || '(제목 없음)'))}</span>
         </div>
-        <div class="pending-item-sub">${escapeHtml(dateRange)}${team ? ' · '+escapeHtml(team.name) : ''}${ev.client ? ' · '+escapeHtml(ev.client) : ''}${ev.manager ? ' · '+escapeHtml(ev.manager) : ''}</div>
+        <div class="pending-item-sub">${escapeHtml(dateRange)}${teamNames ? ' · '+escapeHtml(teamNames) : ''}${ev.client ? ' · '+escapeHtml(ev.client) : ''}${ev.manager ? ' · '+escapeHtml(ev.manager) : ''}</div>
       `;
       row.addEventListener('click', ()=>{ closeDayListModal(); openEventModal(ev); });
       body.appendChild(row);
@@ -1603,7 +1635,9 @@ function renderPendingList(){
   }
   body.innerHTML = '';
   pending.forEach(ev=>{
-    const team = teams.find(t=>t.id===ev.teamId);
+    const evTeams = getEventTeamIds(ev).map(tid=>teams.find(t=>t.id===tid)).filter(Boolean);
+    const team = evTeams[0] || null;
+    const teamNames = evTeams.map(t=>t.name).join(', ');
     const row = document.createElement('div');
     row.className = 'pending-item';
     const dateRange = ev.end && ev.end !== ev.start ? `${ev.start} ~ ${ev.end}` : ev.start;
@@ -1612,7 +1646,7 @@ function renderPendingList(){
         <span class="pending-dot" style="background:${team ? team.color : '#999'}"></span>
         <span>${escapeHtml(ev.projectName || ev.title || '(제목 없음)')}</span>
       </div>
-      <div class="pending-item-sub">${escapeHtml(dateRange)}${team ? ' · '+escapeHtml(team.name) : ''}${ev.client ? ' · '+escapeHtml(ev.client) : ''}</div>
+      <div class="pending-item-sub">${escapeHtml(dateRange)}${teamNames ? ' · '+escapeHtml(teamNames) : ''}${ev.client ? ' · '+escapeHtml(ev.client) : ''}</div>
     `;
     row.addEventListener('click', ()=>{ closePendingOverlay(); openEventModal(ev); });
     body.appendChild(row);
@@ -1631,12 +1665,14 @@ function buildTrashRow(kind, item){
   const isEvent = kind === 'event';
   let color, title, sub;
   if(isEvent){
-    const team = teams.find(t=>t.id===item.teamId);
+    const evTeams = getEventTeamIds(item).map(tid=>teams.find(t=>t.id===tid)).filter(Boolean);
+    const team = evTeams[0] || null;
+    const teamNames = evTeams.map(t=>t.name).join(', ');
     const project = findProjectByName(item.projectName);
     const dateRange = item.end && item.end !== item.start ? `${item.start} ~ ${item.end}` : item.start;
     color = (project && project.color) || (team ? team.color : '#999');
     title = item.projectName || item.title || '(제목 없음)';
-    sub = `일정 · ${dateRange}${team ? ' · '+team.name : ''}${item.client ? ' · '+item.client : ''}${item.manager ? ' · '+item.manager : ''}`;
+    sub = `일정 · ${dateRange}${teamNames ? ' · '+teamNames : ''}${item.client ? ' · '+item.client : ''}${item.manager ? ' · '+item.manager : ''}`;
   } else {
     color = item.color || '#999';
     title = item.name || '(이름 없음)';
@@ -2022,12 +2058,20 @@ function renderProjects(){
         card.appendChild(memoEl);
       }
       if(relatedEvents.length > 0){
-        /* 관련 일정을 담당 팀별로 묶어서, 팀마다 기간과 건수를 따로 보여준다 (예: 디자인 · 8/10~9/30 · 2건). */
+        /* 관련 일정을 담당 팀별로 묶어서, 팀마다 기간과 건수를 따로 보여준다 (예: 디자인 · 8/10~9/30 · 2건).
+           디자인+퍼블리싱을 동시에 선택한 일정은 두 팀 그룹 모두에 포함된다. */
         const byTeam = {};
         relatedEvents.forEach(ev=>{
-          const tid = ev.teamId || '_none';
-          if(!byTeam[tid]) byTeam[tid] = [];
-          byTeam[tid].push(ev);
+          const tids = getEventTeamIds(ev);
+          if(tids.length === 0){
+            if(!byTeam['_none']) byTeam['_none'] = [];
+            byTeam['_none'].push(ev);
+            return;
+          }
+          tids.forEach(tid=>{
+            if(!byTeam[tid]) byTeam[tid] = [];
+            byTeam[tid].push(ev);
+          });
         });
         const relWrap = document.createElement('div');
         relWrap.className = 'p-related';
