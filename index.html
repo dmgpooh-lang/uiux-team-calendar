@@ -239,6 +239,13 @@
   .team-pick-btn .dot{width:8px;height:8px;border-radius:50%;flex:none;}
   .team-pick-btn.sel{border-color:transparent;color:#fff;}
 
+  .team-date-row{display:flex;align-items:center;gap:8px;margin-top:8px;}
+  .team-date-row:first-child{margin-top:0;}
+  .team-date-row .tdr-label{display:flex;align-items:center;gap:5px;font-size:12.5px;font-weight:700;width:64px;flex:none;}
+  .team-date-row .tdr-label .dot{width:8px;height:8px;border-radius:50%;flex:none;}
+  .team-date-row input[type=date]{flex:1;padding:9px 10px;border:1px solid var(--border);border-radius:9px;font-size:13.5px;min-width:0;}
+  .team-date-row .tdr-sep{color:var(--muted);font-size:12px;flex:none;}
+
   .approval-row{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:14px;}
   .appr-badge{font-size:11.5px;font-weight:700;padding:5px 10px;border-radius:20px;}
   .appr-badge-approved{background:#e7f9ef;color:#1a9d5c;}
@@ -600,7 +607,11 @@
         <input type="text" id="fManager" name="manager" placeholder="예: 홍길동" autocomplete="on" data-lpignore="true" data-1p-ignore>
       </div>
     </div>
-    <div class="row2">
+    <div class="field">
+      <label>담당 팀 (복수 선택 시 팀별로 기간을 따로 입력해요)</label>
+      <div class="team-picker" id="teamPicker"></div>
+    </div>
+    <div class="row2" id="singleDateRow">
       <div class="field">
         <label>시작일</label>
         <input type="date" id="fStart">
@@ -610,9 +621,9 @@
         <input type="date" id="fEnd">
       </div>
     </div>
-    <div class="field">
-      <label>담당 팀 (복수 선택 가능)</label>
-      <div class="team-picker" id="teamPicker"></div>
+    <div class="field" id="teamDatesWrap" style="display:none;">
+      <label>팀별 기간</label>
+      <div id="teamDatesRows"></div>
     </div>
     <div class="field">
       <label>캘린더 색상 (선택)</label>
@@ -1287,6 +1298,7 @@ document.addEventListener('click', (e)=>{
 /* ---------- Event modal ---------- */
 const eventOverlay = document.getElementById('eventOverlay');
 let selectedTeamIds = new Set();
+let teamDates = {}; // 팀을 2개 이상 선택했을 때, 팀별로 따로 입력한 기간: { [teamId]: {start, end} }
 function renderTeamPicker(){
   const wrap = document.getElementById('teamPicker');
   if(!wrap) return;
@@ -1299,10 +1311,60 @@ function renderTeamPicker(){
     if(sel) btn.style.background = t.color;
     btn.innerHTML = `<span class="dot" style="background:${sel ? '#fff' : t.color}"></span><span>${escapeHtml(t.name)}</span>`;
     btn.addEventListener('click', ()=>{
-      if(selectedTeamIds.has(t.id)) selectedTeamIds.delete(t.id); else selectedTeamIds.add(t.id);
+      if(selectedTeamIds.has(t.id)){
+        selectedTeamIds.delete(t.id);
+        delete teamDates[t.id];
+      } else {
+        selectedTeamIds.add(t.id);
+        /* 팀을 새로 추가하면, 이미 입력돼 있던 날짜(단일 날짜 필드 또는 다른 팀의 날짜)를 기본값으로 가져온다. */
+        const otherTid = Array.from(selectedTeamIds).find(id => id !== t.id && teamDates[id]);
+        const fallback = otherTid ? teamDates[otherTid] : {
+          start: document.getElementById('fStart').value,
+          end: document.getElementById('fEnd').value
+        };
+        const s = fallback.start || toKey(new Date());
+        teamDates[t.id] = { start: s, end: fallback.end || s };
+      }
       renderTeamPicker();
     });
     wrap.appendChild(btn);
+  });
+  renderTeamDateFields();
+}
+function renderTeamDateFields(){
+  const singleRow = document.getElementById('singleDateRow');
+  const multiWrap = document.getElementById('teamDatesWrap');
+  const rowsEl = document.getElementById('teamDatesRows');
+  const selTeams = teams.filter(t => selectedTeamIds.has(t.id));
+  if(selTeams.length <= 1){
+    singleRow.style.display = '';
+    multiWrap.style.display = 'none';
+    return;
+  }
+  singleRow.style.display = 'none';
+  multiWrap.style.display = '';
+  rowsEl.innerHTML = '';
+  selTeams.forEach(t=>{
+    const base = document.getElementById('fStart').value || toKey(new Date());
+    const d = teamDates[t.id] || { start: base, end: base };
+    if(!d.end) d.end = d.start;
+    teamDates[t.id] = d;
+    const row = document.createElement('div');
+    row.className = 'team-date-row';
+    row.innerHTML = `
+      <span class="tdr-label"><span class="dot" style="background:${t.color}"></span>${escapeHtml(t.name)}</span>
+      <input type="date" value="${d.start}" data-team="${t.id}" data-kind="start">
+      <span class="tdr-sep">~</span>
+      <input type="date" value="${d.end}" data-team="${t.id}" data-kind="end">
+    `;
+    rowsEl.appendChild(row);
+  });
+  rowsEl.querySelectorAll('input[type=date]').forEach(inp=>{
+    inp.addEventListener('change', ()=>{
+      const tid = inp.dataset.team, kind = inp.dataset.kind;
+      if(!teamDates[tid]) teamDates[tid] = { start:'', end:'' };
+      teamDates[tid][kind] = inp.value;
+    });
   });
 }
 let selectedStatus = '계획';
@@ -1400,14 +1462,17 @@ document.getElementById('fProject').addEventListener('input', ()=>{
 });
 
 function captureEventFormSnapshot(){
+  const teamIdsSorted = Array.from(selectedTeamIds).sort();
+  const dates = teamIdsSorted.length > 1
+    ? teamIdsSorted.map(tid => `${tid}:${(teamDates[tid]&&teamDates[tid].start)||''}~${(teamDates[tid]&&teamDates[tid].end)||''}`).join('|')
+    : `${document.getElementById('fStart').value}~${document.getElementById('fEnd').value}`;
   return JSON.stringify({
     p: document.getElementById('fProject').value,
     c: document.getElementById('fClient').value,
     m: document.getElementById('fManager').value,
-    s: document.getElementById('fStart').value,
-    e: document.getElementById('fEnd').value,
+    dates,
     memo: document.getElementById('fMemo').value,
-    team: Array.from(selectedTeamIds).sort().join(','),
+    team: teamIdsSorted.join(','),
     status: selectedStatus,
     color: selectedEventColor
   });
@@ -1423,6 +1488,11 @@ function openEventModal(ev, dateKey){
   document.getElementById('fEnd').value = ev ? (ev.end || ev.start) : (dateKey || toKey(new Date()));
   document.getElementById('fMemo').value = ev ? (ev.memo || '') : '';
   selectedTeamIds = new Set(getEventTeamIds(ev));
+  /* 팀이 2개 이상인(구버전) 일정을 열면, 팀별 기간 입력칸에 기존 공통 기간을 기본값으로 채워둔다. */
+  teamDates = {};
+  if(ev && selectedTeamIds.size > 1){
+    selectedTeamIds.forEach(tid => { teamDates[tid] = { start: ev.start, end: ev.end || ev.start }; });
+  }
   renderTeamPicker();
   setSelectedStatus(ev && ev.status ? ev.status : '계획');
   const matchedProject = findProjectByName(ev ? (ev.projectName || '') : '');
@@ -1455,23 +1525,52 @@ document.getElementById('saveEventBtn').addEventListener('click', async ()=>{
   const projectName = document.getElementById('fProject').value.trim();
   const client = document.getElementById('fClient').value.trim();
   const manager = document.getElementById('fManager').value.trim();
-  let start = document.getElementById('fStart').value;
-  let end = document.getElementById('fEnd').value;
   const teamIds = Array.from(selectedTeamIds);
   const memo = document.getElementById('fMemo').value.trim();
   if(!projectName){ alert('프로젝트명을 입력해주세요.'); return; }
-  if(!start){ alert('시작일을 선택해주세요.'); return; }
-  if(!end || end < start) end = start;
   if(teamIds.length === 0){ alert('담당 팀을 1개 이상 선택해주세요.'); return; }
 
-  const approval = isAdmin ? 'approved' : 'pending';
-  /* teamIds가 새 형식(복수 선택). teamId는 구버전 호환용으로 첫 번째 팀을 그대로 같이 저장해둔다. */
-  const data = { projectName, client, manager, start, end, teamIds, teamId: teamIds[0], status: selectedStatus, memo, approval };
-  if(!isAdmin) data.rejectReason = '';
-  if(editingEventId){
-    await updateDoc(doc(db,"events", editingEventId), data);
+  /* 팀이 1개면 기존과 동일하게 단일 기간, 2개 이상이면 팀별로 따로 입력한 기간을 사용한다
+     (디자인은 먼저 시작하고 퍼블리싱은 나중에 시작하는 식으로, 팀마다 일정을 따로 관리). */
+  let schedule; // [{teamId, start, end}]
+  if(teamIds.length <= 1){
+    let start = document.getElementById('fStart').value;
+    let end = document.getElementById('fEnd').value;
+    if(!start){ alert('시작일을 선택해주세요.'); return; }
+    if(!end || end < start) end = start;
+    schedule = [{ teamId: teamIds[0], start, end }];
   } else {
-    await addDoc(eventsCol, data);
+    schedule = [];
+    for(const tid of teamIds){
+      const d = teamDates[tid] || {};
+      if(!d.start){ alert('선택한 팀마다 시작일을 입력해주세요.'); return; }
+      let end = d.end;
+      if(!end || end < d.start) end = d.start;
+      schedule.push({ teamId: tid, start: d.start, end });
+    }
+  }
+
+  const approval = isAdmin ? 'approved' : 'pending';
+  const baseData = { projectName, client, manager, status: selectedStatus, memo, approval };
+  if(!isAdmin) baseData.rejectReason = '';
+
+  if(schedule.length <= 1){
+    /* 팀 1개: 기존과 동일하게 일정 1건을 그대로 등록/수정 */
+    const data = { ...baseData, start: schedule[0].start, end: schedule[0].end, teamId: schedule[0].teamId };
+    if(editingEventId){
+      await updateDoc(doc(db,"events", editingEventId), data);
+    } else {
+      await addDoc(eventsCol, data);
+    }
+  } else {
+    /* 팀 2개 이상: 팀별로 완전히 분리된 일정을 각각 새로 만든다.
+       수정 중이던 기존 일정(통합된 1건)이 있었다면, 더 이상 쓰지 않으므로 휴지통으로 보낸다. */
+    if(editingEventId){
+      await updateDoc(doc(db,"events", editingEventId), { deleted: true, deletedAt: serverTimestamp() });
+    }
+    for(const s of schedule){
+      await addDoc(eventsCol, { ...baseData, start: s.start, end: s.end, teamId: s.teamId });
+    }
   }
 
   /* 캘린더에 등록/수정한 프로젝트명이 "프로젝트 진행상황"에도 반영되도록 동기화.
